@@ -4,8 +4,8 @@ const startScreen = document.getElementById("startScreen");
 const lobbyScreen = document.getElementById("lobbyScreen");
 const gameScreen = document.getElementById("gameScreen");
 
-const nameInput = document.getElementById("nameInput");
-const roomInput = document.getElementById("roomInput");
+const nicknameInput = document.getElementById("nickname");
+const roomInput = document.getElementById("room");
 const joinButton = document.getElementById("joinButton");
 
 const lobbyRoom = document.getElementById("lobbyRoom");
@@ -21,6 +21,9 @@ const leaveButton = document.getElementById("leaveButton");
 
 const trumpDisplay = document.getElementById("trumpDisplay");
 
+const team1Name = document.getElementById("team1Name");
+const team2Name = document.getElementById("team2Name");
+
 const scoreTeam1 = document.getElementById("scoreTeam1");
 const scoreTeam2 = document.getElementById("scoreTeam2");
 
@@ -30,16 +33,12 @@ const overallTeam2 = document.getElementById("overallTeam2");
 const gamesTeam1 = document.getElementById("gamesTeam1");
 const gamesTeam2 = document.getElementById("gamesTeam2");
 
-const teamName1 = document.getElementById("teamName1");
-const teamName2 = document.getElementById("teamName2");
-
-const playerTop = document.getElementById("playerTop");
-const playerLeft = document.getElementById("playerLeft");
-const playerRight = document.getElementById("playerRight");
-const playerBottom = document.getElementById("playerBottom");
+const topPlayer = document.getElementById("topPlayer");
+const leftPlayer = document.getElementById("leftPlayer");
+const rightPlayer = document.getElementById("rightPlayer");
 
 const playedCards = document.getElementById("playedCards");
-const hand = document.getElementById("hand");
+const myCards = document.getElementById("myCards");
 
 const gameMessage = document.getElementById("gameMessage");
 
@@ -48,12 +47,10 @@ let myPlayerIndex = null;
 let myTeam = null;
 let currentRoom = null;
 
-const SUIT_NAMES = {
-    "♥": "Czerwo",
-    "♦": "Dzwonek",
-    "♣": "Krzak",
-    "♠": "Wino"
-};
+
+/* =========================
+   EKRANY
+========================= */
 
 function showScreen(screen) {
     startScreen.classList.add("hidden");
@@ -63,17 +60,26 @@ function showScreen(screen) {
     screen.classList.remove("hidden");
 }
 
+
+/* =========================
+   BŁĘDY
+========================= */
+
 function showError(message) {
     alert(message);
 }
 
-function cardText(card) {
-    if (!card) {
-        return "";
-    }
 
-    return `${card.rank}${card.suit}`;
-}
+/* =========================
+   KARTY
+========================= */
+
+const SUIT_NAMES = {
+    "♥": "Czerwo",
+    "♦": "Dzwonek",
+    "♣": "Krzak",
+    "♠": "Wino"
+};
 
 function getSuitClass(suit) {
     if (suit === "♥" || suit === "♦") {
@@ -83,7 +89,7 @@ function getSuitClass(suit) {
     return "black";
 }
 
-function createCardElement(card, clickable = false) {
+function createCardElement(card, playable = false) {
     const element = document.createElement("button");
 
     element.type = "button";
@@ -93,19 +99,22 @@ function createCardElement(card, clickable = false) {
         element.classList.add("red");
     }
 
-    if (clickable) {
+    if (playable) {
         element.classList.add("playable");
     }
 
     const rank = document.createElement("span");
+
     rank.className = "card-rank";
     rank.textContent = card.rank;
 
     const suit = document.createElement("span");
+
     suit.className = "card-suit";
     suit.textContent = card.suit;
 
     const suitName = document.createElement("small");
+
     suitName.className = "card-suit-name";
     suitName.textContent =
         SUIT_NAMES[card.suit] || "";
@@ -114,7 +123,7 @@ function createCardElement(card, clickable = false) {
     element.appendChild(suit);
     element.appendChild(suitName);
 
-    if (clickable) {
+    if (playable) {
         element.addEventListener("click", () => {
             socket.emit("playCard", card);
         });
@@ -123,46 +132,38 @@ function createCardElement(card, clickable = false) {
     return element;
 }
 
-function renderLobby(data) {
-    currentRoom = data.roomId;
 
-    lobbyRoom.textContent =
-        `Pokój: ${data.roomId}`;
+/* =========================
+   DOŁĄCZANIE DO POKOJU
+========================= */
 
-    lobbyStatus.textContent =
-        `Oczekiwanie na graczy: ${data.playerCount}/4`;
+joinButton.addEventListener("click", () => {
+    const name =
+        nicknameInput.value.trim();
 
-    lobbyPlayers.innerHTML = "";
+    const roomId =
+        roomInput.value.trim().toUpperCase();
 
-    for (const player of data.players) {
-        const row = document.createElement("div");
-
-        row.className = "lobby-player";
-
-        const name = document.createElement("span");
-
-        name.textContent = player.name;
-
-        if (player.isBot) {
-            name.textContent += " 🤖";
-        }
-
-        const team = document.createElement("span");
-
-        if (player.team === 0) {
-            team.textContent = "Drużyna 1";
-        } else if (player.team === 1) {
-            team.textContent = "Drużyna 2";
-        } else {
-            team.textContent = "brak drużyny";
-        }
-
-        row.appendChild(name);
-        row.appendChild(team);
-
-        lobbyPlayers.appendChild(row);
+    if (!name) {
+        showError("Podaj pseudonim.");
+        return;
     }
-}
+
+    if (!roomId) {
+        showError("Podaj pokój.");
+        return;
+    }
+
+    socket.emit("joinRoom", {
+        name,
+        roomId
+    });
+});
+
+
+/* =========================
+   WYBÓR DRUŻYNY
+========================= */
 
 function setTeam(team) {
     if (team !== 0 && team !== 1) {
@@ -171,227 +172,253 @@ function setTeam(team) {
 
     myTeam = team;
 
-    selectedTeam.textContent =
-        team === 0
-            ? "Wybrano: Drużyna 1"
-            : "Wybrano: Drużyna 2";
+    if (team === 0) {
+        selectedTeam.textContent =
+            "Wybrano: Drużyna 1";
 
-    team1Button.classList.toggle(
-        "selected",
-        team === 0
-    );
+        team1Button.classList.add("selected");
+        team2Button.classList.remove("selected");
+    } else {
+        selectedTeam.textContent =
+            "Wybrano: Drużyna 2";
 
-    team2Button.classList.toggle(
-        "selected",
-        team === 1
-    );
+        team1Button.classList.remove("selected");
+        team2Button.classList.add("selected");
+    }
 
     socket.emit("chooseTeam", team);
 }
 
-team1Button?.addEventListener(
+team1Button.addEventListener(
     "click",
     () => setTeam(0)
 );
 
-team2Button?.addEventListener(
+team2Button.addEventListener(
     "click",
     () => setTeam(1)
 );
 
-joinButton?.addEventListener(
-    "click",
-    () => {
+
+/* =========================
+   BOTY
+========================= */
+
+botsButton.addEventListener("click", () => {
+    socket.emit("startWithBots");
+});
+
+
+/* =========================
+   OPUSZCZANIE
+========================= */
+
+leaveButton.addEventListener("click", () => {
+    socket.emit("leaveRoom");
+
+    currentState = null;
+    myPlayerIndex = null;
+    myTeam = null;
+
+    showScreen(startScreen);
+});
+
+
+/* =========================
+   SOCKET — DOŁĄCZONO
+========================= */
+
+socket.on("joinedRoom", data => {
+    currentRoom = data.roomId;
+
+    lobbyRoom.textContent =
+        data.roomId;
+
+    showScreen(lobbyScreen);
+});
+
+
+/* =========================
+   LOBBY
+========================= */
+
+socket.on("lobbyState", data => {
+    renderLobby(data);
+});
+
+function renderLobby(data) {
+    lobbyRoom.textContent =
+        data.roomId || currentRoom || "—";
+
+    lobbyStatus.textContent =
+        `Oczekiwanie na graczy: ${data.playerCount}/4`;
+
+    lobbyPlayers.innerHTML = "";
+
+    for (const player of data.players || []) {
+        const row =
+            document.createElement("div");
+
+        row.className =
+            "lobby-player";
+
         const name =
-            nameInput.value.trim();
+            document.createElement("span");
 
-        const roomId =
-            roomInput.value.trim().toUpperCase();
+        name.textContent =
+            player.name;
 
-        if (!name) {
-            showError("Podaj nick.");
-            return;
+        if (player.isBot) {
+            name.textContent += " 🤖";
         }
 
-        if (!roomId) {
-            showError("Podaj kod pokoju.");
-            return;
+        const team =
+            document.createElement("span");
+
+        if (player.team === 0) {
+            team.textContent =
+                "Drużyna 1";
+        } else if (player.team === 1) {
+            team.textContent =
+                "Drużyna 2";
+        } else {
+            team.textContent =
+                "brak drużyny";
         }
 
-        socket.emit("joinRoom", {
-            name,
-            roomId
-        });
+        row.appendChild(name);
+        row.appendChild(team);
+
+        lobbyPlayers.appendChild(row);
     }
-);
 
-botsButton?.addEventListener(
-    "click",
-    () => {
-        socket.emit("startWithBots");
+    showScreen(lobbyScreen);
+}
+
+
+/* =========================
+   START GRY
+========================= */
+
+socket.on("gameStarted", () => {
+    showScreen(gameScreen);
+});
+
+
+/* =========================
+   STAN GRY
+========================= */
+
+socket.on("gameState", state => {
+    currentState = state;
+
+    if (
+        typeof state.playerIndex === "number"
+    ) {
+        myPlayerIndex =
+            state.playerIndex;
     }
-);
 
-leaveButton?.addEventListener(
-    "click",
-    () => {
-        socket.emit("leaveRoom");
-
-        showScreen(startScreen);
-    }
-);
-
-socket.on(
-    "joinedRoom",
-    data => {
-        currentRoom = data.roomId;
-
-        showScreen(lobbyScreen);
-    }
-);
-
-socket.on(
-    "lobbyState",
-    data => {
-        renderLobby(data);
-
-        if (
-            lobbyScreen.classList.contains("hidden") &&
-            !gameScreen.classList.contains("hidden")
-        ) {
-            return;
-        }
-
-        showScreen(lobbyScreen);
-    }
-);
-
-socket.on(
-    "gameStarted",
-    () => {
-        showScreen(gameScreen);
-    }
-);
-
-socket.on(
-    "gameState",
-    state => {
-        currentState = state;
-
-        if (
-            typeof state.playerIndex === "number"
-        ) {
-            myPlayerIndex =
-                state.playerIndex;
-        }
-
+    if (
+        typeof state.myTeam === "number"
+    ) {
         myTeam =
             state.myTeam;
-
-        renderGame(state);
     }
-);
 
-socket.on(
-    "chooseTrump",
-    data => {
-        /*
-         * To jest moment, w którym gracz
-         * musi obowiązkowo wybrać kolor.
-         */
-        showTrumpChooser(
-            data.hand || []
-        );
-    }
-);
+    renderGame(state);
+});
 
-socket.on(
-    "errorMessage",
-    message => {
-        showError(message);
-    }
-);
+
+/* =========================
+   OBIERANIE KOLORU
+========================= */
+
+socket.on("chooseTrump", data => {
+    showTrumpChooser(
+        data.hand || []
+    );
+});
+
+
+/* =========================
+   BŁĄD Z SERWERA
+========================= */
+
+socket.on("errorMessage", message => {
+    showError(message);
+});
+
+
+/* =========================
+   RENDER GRY
+========================= */
 
 function renderGame(state) {
     renderTrump(state);
-
     renderScores(state);
-
     renderPlayers(state);
-
     renderTrick(state);
-
     renderHand(state);
 
-    if (gameMessage) {
-        gameMessage.textContent =
-            state.message || "";
-    }
+    gameMessage.textContent =
+        state.message || "—";
 }
+
+
+/* =========================
+   ATUT
+========================= */
 
 function renderTrump(state) {
-    if (!trumpDisplay) {
-        return;
-    }
-
     if (!state.trump) {
         trumpDisplay.textContent =
-            "Kolor: nieobrany";
+            "Obrany kolor: —";
 
         return;
     }
 
-    const suitName =
-        SUIT_NAMES[state.trump] ||
-        state.trump;
-
     trumpDisplay.textContent =
-        `Obrany kolor: ${state.trump} ${suitName}`;
+        `Obrany kolor: ${state.trump} ${SUIT_NAMES[state.trump]}`;
 }
+
+
+/* =========================
+   PUNKTY
+========================= */
 
 function renderScores(state) {
-    if (scoreTeam1) {
-        scoreTeam1.textContent =
-            state.scores?.[0] ?? 0;
-    }
+    team1Name.textContent =
+        state.teamNames?.[0] ||
+        "Drużyna 1";
 
-    if (scoreTeam2) {
-        scoreTeam2.textContent =
-            state.scores?.[1] ?? 0;
-    }
+    team2Name.textContent =
+        state.teamNames?.[1] ||
+        "Drużyna 2";
 
-    if (overallTeam1) {
-        overallTeam1.textContent =
-            state.overallScores?.[0] ?? 0;
-    }
+    scoreTeam1.textContent =
+        state.scores?.[0] ?? 0;
 
-    if (overallTeam2) {
-        overallTeam2.textContent =
-            state.overallScores?.[1] ?? 0;
-    }
+    scoreTeam2.textContent =
+        state.scores?.[1] ?? 0;
 
-    if (gamesTeam1) {
-        gamesTeam1.textContent =
-            state.gameWins?.[0] ?? 0;
-    }
+    overallTeam1.textContent =
+        state.overallScores?.[0] ?? 0;
 
-    if (gamesTeam2) {
-        gamesTeam2.textContent =
-            state.gameWins?.[1] ?? 0;
-    }
+    overallTeam2.textContent =
+        state.overallScores?.[1] ?? 0;
 
-    if (teamName1) {
-        teamName1.textContent =
-            state.teamNames?.[0] ||
-            "Drużyna 1";
-    }
+    gamesTeam1.textContent =
+        state.gameWins?.[0] ?? 0;
 
-    if (teamName2) {
-        teamName2.textContent =
-            state.teamNames?.[1] ||
-            "Drużyna 2";
-    }
+    gamesTeam2.textContent =
+        state.gameWins?.[1] ?? 0;
 }
+
+
+/* =========================
+   GRACZE PRZY STOLE
+========================= */
 
 function renderPlayers(state) {
     const players =
@@ -401,67 +428,49 @@ function renderPlayers(state) {
         return;
     }
 
-    /*
-     * Układ zgodny z server/game.js:
-     *
-     *        [2]
-     *
-     * [1]          [3]
-     *
-     *        [0]
-     *
-     * Gracz [0] jest nami.
-     */
-
-    let bottomIndex =
-        myPlayerIndex;
-
     if (
-        bottomIndex === null ||
-        bottomIndex === undefined
+        myPlayerIndex === null ||
+        myPlayerIndex === undefined
     ) {
-        bottomIndex = 0;
-    }
-
-    const topIndex =
-        (bottomIndex + 2) % 4;
-
-    const leftIndex =
-        (bottomIndex + 1) % 4;
-
-    const rightIndex =
-        (bottomIndex + 3) % 4;
-
-    if (playerBottom) {
-        playerBottom.textContent =
-            players[bottomIndex]?.name ||
-            "";
-    }
-
-    if (playerTop) {
-        playerTop.textContent =
-            players[topIndex]?.name ||
-            "";
-    }
-
-    if (playerLeft) {
-        playerLeft.textContent =
-            players[leftIndex]?.name ||
-            "";
-    }
-
-    if (playerRight) {
-        playerRight.textContent =
-            players[rightIndex]?.name ||
-            "";
-    }
-}
-
-function renderTrick(state) {
-    if (!playedCards) {
         return;
     }
 
+    /*
+     * Układ serwera:
+     *
+     * 0 = drużyna 1
+     * 1 = drużyna 2
+     * 2 = drużyna 1
+     * 3 = drużyna 2
+     *
+     * Partner jest więc naprzeciwko.
+     */
+
+    const topIndex =
+        (myPlayerIndex + 2) % 4;
+
+    const leftIndex =
+        (myPlayerIndex + 1) % 4;
+
+    const rightIndex =
+        (myPlayerIndex + 3) % 4;
+
+    topPlayer.textContent =
+        players[topIndex]?.name || "—";
+
+    leftPlayer.textContent =
+        players[leftIndex]?.name || "—";
+
+    rightPlayer.textContent =
+        players[rightIndex]?.name || "—";
+}
+
+
+/* =========================
+   ZAGRANE KARTY
+========================= */
+
+function renderTrick(state) {
     playedCards.innerHTML = "";
 
     const trick =
@@ -474,7 +483,7 @@ function renderTrick(state) {
         wrapper.className =
             "played-card";
 
-        const cardElement =
+        const card =
             createCardElement(
                 play.card,
                 false
@@ -492,34 +501,24 @@ function renderTrick(state) {
             ]?.name ||
             `Gracz ${play.playerIndex + 1}`;
 
-        wrapper.appendChild(
-            cardElement
-        );
+        wrapper.appendChild(card);
+        wrapper.appendChild(player);
 
-        wrapper.appendChild(
-            player
-        );
-
-        playedCards.appendChild(
-            wrapper
-        );
+        playedCards.appendChild(wrapper);
     }
 }
 
-function renderHand(state) {
-    if (!hand) {
-        return;
-    }
 
-    hand.innerHTML = "";
+/* =========================
+   MOJE KARTY
+========================= */
+
+function renderHand(state) {
+    myCards.innerHTML = "";
 
     const cards =
         state.hand || [];
 
-    /*
-     * Jeśli klient nie dostał kart,
-     * nie próbujemy niczego zgadywać.
-     */
     for (const card of cards) {
         const playable =
             state.phase === "playing" &&
@@ -532,14 +531,16 @@ function renderHand(state) {
                 playable
             );
 
-        hand.appendChild(element);
+        myCards.appendChild(element);
     }
 }
 
+
+/* =========================
+   OKNO OBIERANIA
+========================= */
+
 function showTrumpChooser(cards) {
-    /*
-     * Usuwamy poprzednie okno.
-     */
     const old =
         document.getElementById(
             "trumpChooser"
@@ -595,7 +596,8 @@ function showTrumpChooser(cards) {
         const button =
             document.createElement("button");
 
-        button.type = "button";
+        button.type =
+            "button";
 
         button.className =
             "trump-button";
@@ -607,9 +609,10 @@ function showTrumpChooser(cards) {
             button.classList.add("red");
         }
 
-        button.innerHTML =
-            `<strong>${suit}</strong>
-             <span>${SUIT_NAMES[suit]}</span>`;
+        button.innerHTML = `
+            <strong>${suit}</strong>
+            <span>${SUIT_NAMES[suit]}</span>
+        `;
 
         button.addEventListener(
             "click",
@@ -627,10 +630,14 @@ function showTrumpChooser(cards) {
     }
 
     box.appendChild(buttons);
-
     overlay.appendChild(box);
 
     document.body.appendChild(overlay);
 }
+
+
+/* =========================
+   START
+========================= */
 
 showScreen(startScreen);
