@@ -2,13 +2,40 @@
     box-sizing: border-box;
 }
 
+:root {
+    --bg: #0b0d12;
+    --panel: #151923;
+    --panel-light: #1d2230;
+    --border: #303747;
+    --text: #f2f4f8;
+    --muted: #9ca4b5;
+    --accent: #d8a84e;
+    --accent-hover: #edbd5d;
+    --danger: #d9534f;
+    --green: #4caf72;
+}
+
+html,
 body {
     margin: 0;
-    min-height: 100vh;
-    font-family: Arial, sans-serif;
+    padding: 0;
+    min-height: 100%;
+}
+
+body {
     background:
-        radial-gradient(circle at top, #24322b 0%, #111713 45%, #090b0a 100%);
-    color: #f1f1f1;
+        radial-gradient(
+            circle at top,
+            #202638 0%,
+            #0b0d12 55%
+        );
+
+    color: var(--text);
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
 }
 
 button,
@@ -20,641 +47,911 @@ button {
     cursor: pointer;
 }
 
+.hidden {
+    display: none !important;
+}
+
+
+/* ========================= */
+/* EKRANY */
+/* ========================= */
+
 .screen {
-    width: 100%;
     min-height: 100vh;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
     padding: 20px;
 }
 
 
-/* =========================
-   START
-========================= */
+/* ========================= */
+/* START */
+/* ========================= */
 
-#startScreen {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+.start-card,
+.lobby-card {
+    width: 100%;
+    max-width: 430px;
 
-.start-box,
-.lobby-box {
-    width: min(420px, 100%);
-    padding: 30px;
+    background:
+        rgba(21, 25, 35, 0.96);
+
+    border: 1px solid var(--border);
+
     border-radius: 18px;
-    background: rgba(20, 25, 22, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+
+    padding: 30px;
+
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.start-card h1,
+.lobby-card h1 {
+    margin: 0;
+
     text-align: center;
-}
 
-.start-box h1 {
-    margin: 0 0 8px;
     font-size: 42px;
-    letter-spacing: 3px;
+    letter-spacing: 2px;
 }
 
-.start-box p {
-    margin: 0 0 25px;
-    color: #a9b0aa;
+.subtitle {
+    margin: 6px 0 28px;
+
+    text-align: center;
+
+    color: var(--muted);
+
+    font-size: 16px;
 }
+
+
+/* ========================= */
+/* INPUTY */
+/* ========================= */
 
 input {
     width: 100%;
-    padding: 13px 15px;
+
     margin-bottom: 12px;
+
+    padding: 14px 15px;
+
+    background: #0f1219;
+
+    color: var(--text);
+
+    border: 1px solid var(--border);
+
     border-radius: 10px;
-    border: 1px solid #3b463f;
-    background: #111612;
-    color: white;
+
     outline: none;
+
+    transition:
+        border-color 0.2s,
+        box-shadow 0.2s;
 }
 
 input:focus {
-    border-color: #8d9b91;
+    border-color: var(--accent);
+
+    box-shadow:
+        0 0 0 3px rgba(216, 168, 78, 0.12);
 }
+
+input::placeholder {
+    color: #6f7788;
+}
+
+
+/* ========================= */
+/* BUTTONY */
+/* ========================= */
 
 button {
     border: 0;
+
     border-radius: 10px;
-    padding: 12px 18px;
-    background: #59675e;
-    color: white;
+
+    padding: 13px 16px;
+
+    color: #111;
+
+    background: var(--accent);
+
     font-weight: 700;
-    transition: 0.15s ease;
+
+    transition:
+        transform 0.15s,
+        background 0.15s,
+        opacity 0.15s;
 }
 
-button:hover:not(:disabled) {
-    transform: translateY(-1px);
-    background: #6b7b70;
+button:hover {
+    background: var(--accent-hover);
+}
+
+button:active {
+    transform: scale(0.98);
 }
 
 button:disabled {
-    cursor: default;
-    opacity: 0.55;
+    opacity: 0.45;
+
+    cursor: not-allowed;
+
+    transform: none;
+}
+
+#joinButton,
+#botsButton {
+    width: 100%;
+
+    margin-top: 4px;
+}
+
+.secondary-button {
+    width: 100%;
+
+    margin-top: 10px;
+
+    background: #252b39;
+
+    color: var(--text);
+}
+
+.secondary-button:hover {
+    background: #303747;
 }
 
 
-/* =========================
-   LOBBY
-========================= */
+/* ========================= */
+/* KOMUNIKATY */
+/* ========================= */
 
-#lobbyScreen {
-    display: none;
+.message {
+    min-height: 20px;
+
+    margin: 14px 0 0;
+
+    text-align: center;
+
+    color: var(--muted);
+
+    font-size: 14px;
 }
 
-.lobby-box h2 {
-    margin-top: 0;
+
+/* ========================= */
+/* LOBBY */
+/* ========================= */
+
+.room-info {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    margin-top: 22px;
+
+    color: var(--muted);
 }
 
-.lobby-room {
-    color: #9fa9a1;
-    margin-bottom: 12px;
+.room-info strong {
+    color: var(--accent);
+
+    letter-spacing: 2px;
 }
 
-.lobby-status {
-    margin: 12px 0 22px;
-    padding: 10px 12px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.05);
-    color: #c5cdc7;
-    font-weight: 700;
+.lobby-players {
+    margin-top: 24px;
+}
+
+.lobby-players h2,
+.team-selection h2 {
+    margin: 0 0 12px;
+
+    font-size: 17px;
 }
 
 #lobbyPlayers {
     display: flex;
+
     flex-direction: column;
+
     gap: 8px;
-    margin-bottom: 20px;
 }
 
 .lobby-player {
-    padding: 12px;
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    min-height: 46px;
+
+    padding: 10px 13px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.06);
-    text-align: left;
+}
+
+.lobby-player-name {
+    font-weight: 600;
+}
+
+.lobby-player-team {
+    color: var(--accent);
+
+    font-size: 13px;
+}
+
+.lobby-player-bot {
+    color: var(--muted);
+
+    font-size: 12px;
+}
+
+.empty-player {
+    padding: 14px;
+
+    background: #10131a;
+
+    border: 1px dashed var(--border);
+
+    border-radius: 10px;
+
+    color: var(--muted);
+
+    text-align: center;
 }
 
 
-/* =========================
-   DRUŻYNY
-========================= */
+/* ========================= */
+/* DRUŻYNY */
+/* ========================= */
 
 .team-selection {
-    margin: 20px 0;
-    padding: 16px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.team-selection h3 {
-    margin: 0 0 12px;
+    margin: 24px 0;
 }
 
 .team-buttons {
     display: grid;
+
     grid-template-columns: 1fr 1fr;
+
     gap: 10px;
 }
 
-.team-button {
-    border: 2px solid transparent;
+.team-buttons button {
+    background: #252b39;
+
+    color: var(--text);
 }
 
-.team-button.selected {
-    border-color: #d5ddd7;
-    background: #718077;
+.team-buttons button.selected {
+    background: var(--accent);
+
+    color: #111;
 }
 
-.selected-team {
-    margin-top: 12px;
-    color: #b9c2bb;
-    font-size: 14px;
+.selected-team-text {
+    margin: 10px 0 0;
+
+    color: var(--muted);
+
+    font-size: 13px;
+
+    text-align: center;
 }
 
-.lobby-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.bots-button {
-    background: #697a6e;
-}
-
-.bots-button:hover:not(:disabled) {
-    background: #7c8d81;
-}
-
-#leaveButton {
-    background: #763f3f;
-}
-
-#leaveButton:hover {
-    background: #8c4b4b;
+#selectedTeam {
+    color: var(--accent);
 }
 
 
-/* =========================
-   GAME
-========================= */
+/* ========================= */
+/* GRA */
+/* ========================= */
 
 #gameScreen {
-    display: none;
+    align-items: stretch;
+
+    justify-content: stretch;
+
+    padding: 0;
 }
 
-.game {
-    width: min(1100px, 100%);
-    margin: 0 auto;
+.game-container {
+    width: 100%;
+
+    min-height: 100vh;
+
+    display: flex;
+
+    flex-direction: column;
 }
+
+
+/* ========================= */
+/* HEADER GRY */
+/* ========================= */
 
 .game-header {
     display: flex;
-    justify-content: space-between;
+
     align-items: center;
-    gap: 15px;
-    margin-bottom: 15px;
+
+    justify-content: space-between;
+
+    gap: 20px;
+
+    padding: 12px 18px;
+
+    background:
+        rgba(15, 18, 25, 0.95);
+
+    border-bottom: 1px solid var(--border);
 }
 
-.game-title {
-    font-size: 28px;
-    font-weight: 800;
-    letter-spacing: 2px;
+.trump-info {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    white-space: nowrap;
+
+    color: var(--muted);
 }
 
-.trump {
-    padding: 10px 15px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.08);
-    font-weight: 700;
+#trumpDisplay {
+    color: var(--accent);
+
+    font-size: 20px;
 }
-
-
-/* =========================
-   PUNKTACJA
-========================= */
 
 .scores {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 15px;
-}
-
-.score-box {
-    padding: 15px;
-    border-radius: 12px;
-    background: rgba(20, 25, 22, 0.9);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.score-name {
-    margin-bottom: 12px;
-    color: #f0f3f0;
-    font-size: 16px;
-    font-weight: 800;
-}
-
-.score-section {
     display: flex;
-    justify-content: space-between;
+
+    gap: 20px;
+}
+
+.score-team {
+    display: grid;
+
+    grid-template-columns:
+        auto auto auto;
+
     align-items: center;
-    gap: 10px;
-    padding: 8px 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+
+    column-gap: 6px;
+
+    font-size: 12px;
 }
 
-.score-section:first-of-type {
-    border-top: 0;
+.score-team > span:first-child {
+    grid-column: 1 / -1;
+
+    margin-bottom: 2px;
+
+    font-weight: 700;
+
+    color: var(--text);
 }
 
-.score-label {
-    color: #9fa9a1;
-    font-size: 13px;
-}
+.score-team strong {
+    color: var(--accent);
 
-.score-value {
-    font-size: 26px;
-    font-weight: 900;
-}
-
-.score-secondary {
     font-size: 18px;
-    font-weight: 800;
-    color: #c7cec9;
+}
+
+.score-team small {
+    color: var(--muted);
+
+    font-size: 10px;
 }
 
 
-/* =========================
-   STÓŁ
-========================= */
+/* ========================= */
+/* STÓŁ */
+/* ========================= */
 
-.table {
+.game-table {
     position: relative;
-    min-height: 500px;
-    border-radius: 25px;
-    background:
-        radial-gradient(circle, #31513d 0%, #1d3427 65%, #15251c 100%);
-    border: 8px solid #513d29;
-    box-shadow:
-        inset 0 0 40px rgba(0, 0, 0, 0.4),
-        0 20px 50px rgba(0, 0, 0, 0.4);
+
+    flex: 1;
+
+    min-height: 0;
+
     overflow: hidden;
+
+    background:
+        radial-gradient(
+            ellipse at center,
+            #21432f 0%,
+            #183524 48%,
+            #10261a 100%
+        );
+
+    border: 10px solid #090b0f;
 }
+
+
+/* ========================= */
+/* GRACZE */
+/* ========================= */
 
 .player {
     position: absolute;
+
     z-index: 5;
+
     padding: 8px 13px;
-    border-radius: 10px;
-    background: rgba(0, 0, 0, 0.45);
-    font-weight: 700;
-    text-align: center;
-    max-width: 180px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+
+    background:
+        rgba(10, 12, 17, 0.82);
+
+    border: 1px solid rgba(255,255,255,0.1);
+
+    border-radius: 20px;
+
+    color: var(--text);
+
+    font-size: 13px;
+
     white-space: nowrap;
+
+    box-shadow:
+        0 5px 18px rgba(0,0,0,0.25);
 }
 
 .player-top {
-    top: 15px;
+    top: 18px;
+
     left: 50%;
+
     transform: translateX(-50%);
 }
 
 .player-left {
-    left: 15px;
     top: 50%;
-    transform: translateY(-50%);
+
+    left: 14px;
+
+    transform:
+        translateY(-50%)
+        rotate(-90deg);
 }
 
 .player-right {
-    right: 15px;
     top: 50%;
-    transform: translateY(-50%);
+
+    right: 14px;
+
+    transform:
+        translateY(-50%)
+        rotate(90deg);
 }
 
 
-/* =========================
-   ZAGRANE KARTY
-========================= */
+/* ========================= */
+/* KARTY NA STOLE */
+/* ========================= */
 
-#playedCards {
+.played-cards {
     position: absolute;
-    inset: 80px 100px 100px 100px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 35px;
-    flex-wrap: wrap;
+
+    left: 50%;
+    top: 50%;
+
+    transform:
+        translate(-50%, -50%);
+
+    width: min(330px, 55vw);
+
+    height: 250px;
 }
 
 .played-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    min-width: 90px;
-}
+    position: absolute;
 
-.played-card-player {
-    font-size: 13px;
-    font-weight: 700;
-    color: #ffffff;
-    background: rgba(0, 0, 0, 0.45);
-    padding: 5px 9px;
-    border-radius: 7px;
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-
-/* =========================
-   KARTY
-========================= */
-
-.card {
     width: 72px;
     height: 104px;
-    border-radius: 10px;
-    background: #f4f4f0;
-    border: 2px solid #d1d1cc;
-    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.35);
 
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    left: 50%;
+    top: 50%;
+
+    transform:
+        translate(-50%, -50%);
+
+    z-index: 1;
+}
+
+.played-card.card-0 {
+    transform:
+        translate(-105px, -50%);
+}
+
+.played-card.card-1 {
+    transform:
+        translate(-50%, -105px);
+}
+
+.played-card.card-2 {
+    transform:
+        translate(33px, -50%);
+}
+
+.played-card.card-3 {
+    transform:
+        translate(-50%, 1px);
+}
+
+
+/* ========================= */
+/* KARTY */
+/* ========================= */
+
+.card {
+    position: relative;
+
+    width: 72px;
+    height: 104px;
+
+    border-radius: 9px;
+
+    background:
+        linear-gradient(
+            145deg,
+            #ffffff,
+            #e9ebef
+        );
+
+    border: 1px solid #c9ccd2;
+
+    color: #15171c;
+
+    box-shadow:
+        0 7px 15px rgba(0,0,0,0.35);
 
     user-select: none;
 }
 
+.card.red {
+    color: #c73535;
+}
+
+.card-black {
+    color: #17191d;
+}
+
 .card-rank {
-    font-size: 26px;
-    font-weight: 900;
-    line-height: 1;
+    position: absolute;
+
+    top: 6px;
+    left: 7px;
+
+    font-size: 17px;
+
+    font-weight: 800;
 }
 
 .card-suit {
-    font-size: 30px;
-    line-height: 1;
-    margin-top: 5px;
-}
-
-.card.red,
-.hand-card.red {
-    color: #d00000;
-}
-
-.card.red .card-rank,
-.card.red .card-suit {
-    color: #d00000;
-}
-
-.card.black,
-.hand-card.black {
-    color: #111111;
-}
-
-.card.black .card-rank,
-.card.black .card-suit {
-    color: #111111;
-}
-
-
-/* =========================
-   MOJE KARTY
-========================= */
-
-#myCards {
     position: absolute;
-    bottom: 15px;
+
+    top: 28px;
+    left: 7px;
+
+    font-size: 18px;
+}
+
+.card-value {
+    position: absolute;
+
+    right: 6px;
+    bottom: 5px;
+
+    font-size: 11px;
+
+    color: #666b75;
+}
+
+
+/* ========================= */
+/* MOJE KARTY */
+/* ========================= */
+
+.my-cards {
+    position: absolute;
+
     left: 50%;
-    transform: translateX(-50%);
+
+    bottom: 12px;
+
+    transform:
+        translateX(-50%);
+
     display: flex;
+
+    align-items: flex-end;
+
     justify-content: center;
-    gap: 8px;
-    width: calc(100% - 30px);
+
+    min-height: 115px;
+
+    width: min(700px, 90%);
+
+    gap: 7px;
+
     z-index: 10;
 }
 
-.hand-card {
-    padding: 0;
-    flex-shrink: 0;
-    background: #f4f4f0;
+.my-cards .card {
+    cursor: pointer;
+
+    transition:
+        transform 0.15s,
+        margin 0.15s;
 }
 
-.hand-card:hover:not(:disabled) {
-    transform: translateY(-8px);
+.my-cards .card:hover {
+    transform:
+        translateY(-15px);
+}
+
+.my-cards .card.disabled {
+    opacity: 0.45;
+
+    cursor: not-allowed;
+}
+
+.my-cards .card.disabled:hover {
+    transform: none;
 }
 
 
-/* =========================
-   KOMUNIKAT
-========================= */
+/* ========================= */
+/* KOMUNIKAT W GRZE */
+/* ========================= */
 
-#gameMessage {
+.game-message {
+    position: absolute;
+
+    left: 50%;
+
+    top: calc(50% + 140px);
+
+    transform:
+        translateX(-50%);
+
+    z-index: 20;
+
+    min-width: 180px;
+
+    max-width: 80%;
+
+    padding: 9px 15px;
+
+    border-radius: 20px;
+
+    background:
+        rgba(5, 8, 10, 0.75);
+
+    color: var(--text);
+
     text-align: center;
-    margin: 15px 0;
-    min-height: 24px;
-    font-weight: 700;
-    color: #d7ddd8;
+
+    font-size: 13px;
+
+    pointer-events: none;
 }
 
 
-/* =========================
-   OBIERAJ
-========================= */
+/* ========================= */
+/* WYBÓR ATUTU */
+/* ========================= */
 
-.trump-buttons {
-    position: fixed;
+.trump-choice {
+    position: absolute;
+
     left: 50%;
     top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 100;
+
+    transform:
+        translate(-50%, -50%);
+
+    z-index: 30;
 
     display: flex;
-    flex-direction: column;
-    align-items: stretch;
+
+    flex-wrap: wrap;
+
+    justify-content: center;
+
     gap: 10px;
 
-    width: min(300px, calc(100% - 40px));
-    padding: 22px;
+    width: min(400px, 90%);
 
-    border-radius: 16px;
+    padding: 18px;
 
-    background: rgba(15, 19, 16, 0.98);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background:
+        rgba(10, 12, 17, 0.96);
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 15px;
 
     box-shadow:
-        0 25px 70px rgba(0, 0, 0, 0.6);
+        0 15px 45px rgba(0,0,0,0.5);
 }
 
-.trump-title {
-    text-align: center;
-    font-size: 22px;
-    font-weight: 900;
-    margin-bottom: 5px;
-}
-
-.trump-button {
-    padding: 13px;
-    background: #303a33;
-}
-
-.trump-button.red {
-    color: #e00000;
-}
-
-.trump-button.black {
-    color: white;
+.trump-choice button {
+    min-width: 75px;
 }
 
 
-/* =========================
-   MOBILE
-========================= */
+/* ========================= */
+/* RESPONSIVE */
+/* ========================= */
 
 @media (max-width: 700px) {
 
     .screen {
-        padding: 10px;
+        padding: 12px;
     }
 
-    .start-box,
-    .lobby-box {
-        padding: 22px;
+    .start-card,
+    .lobby-card {
+        padding: 22px 18px;
+
+        border-radius: 15px;
     }
 
-    .start-box h1 {
-        font-size: 34px;
+    .start-card h1,
+    .lobby-card h1 {
+        font-size: 36px;
     }
 
     .game-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
+        padding: 9px 10px;
 
-    .game-title {
-        text-align: center;
-    }
-
-    .trump {
-        text-align: center;
+        gap: 10px;
     }
 
     .scores {
         gap: 8px;
     }
 
-    .score-box {
-        padding: 11px;
+    .score-team {
+        column-gap: 4px;
     }
 
-    .score-name {
-        font-size: 14px;
-        margin-bottom: 8px;
-    }
-
-    .score-label {
-        font-size: 11px;
-    }
-
-    .score-value {
-        font-size: 22px;
-    }
-
-    .score-secondary {
+    .score-team strong {
         font-size: 16px;
     }
 
-    .table {
-        min-height: 560px;
+    .score-team small {
+        font-size: 9px;
+    }
+
+    .game-table {
         border-width: 5px;
     }
 
-    #playedCards {
-        inset: 80px 45px 130px 45px;
-        gap: 15px;
+    .player {
+        padding: 6px 9px;
+
+        font-size: 11px;
+    }
+
+    .player-left {
+        left: 2px;
+    }
+
+    .player-right {
+        right: 2px;
+    }
+
+    .played-cards {
+        width: 260px;
+
+        height: 210px;
     }
 
     .played-card {
-        min-width: 70px;
-    }
-
-    .played-card-player {
-        font-size: 11px;
-        max-width: 85px;
+        width: 58px;
+        height: 84px;
     }
 
     .card {
         width: 58px;
-        height: 86px;
+        height: 84px;
     }
 
     .card-rank {
-        font-size: 21px;
+        top: 4px;
+        left: 5px;
+
+        font-size: 14px;
     }
 
     .card-suit {
-        font-size: 24px;
-    }
-
-    #myCards {
-        gap: 4px;
-        bottom: 10px;
-    }
-
-    .player {
-        font-size: 12px;
-        padding: 6px 9px;
-    }
-
-    .player-left {
+        top: 23px;
         left: 5px;
+
+        font-size: 15px;
     }
 
-    .player-right {
+    .card-value {
         right: 5px;
+        bottom: 4px;
+
+        font-size: 9px;
+    }
+
+    .my-cards {
+        gap: 3px;
+
+        width: 96%;
+
+        bottom: 7px;
+
+        min-height: 92px;
+    }
+
+    .my-cards .card:hover {
+        transform:
+            translateY(-8px);
+    }
+
+    .game-message {
+        top: calc(50% + 115px);
+
+        font-size: 11px;
     }
 }
 
-
 @media (max-width: 420px) {
-
-    .table {
-        min-height: 520px;
-    }
-
-    #playedCards {
-        inset: 75px 25px 120px 25px;
-    }
-
-    .card {
-        width: 52px;
-        height: 78px;
-    }
-
-    .card-rank {
-        font-size: 19px;
-    }
-
-    .card-suit {
-        font-size: 21px;
-    }
-
-    .played-card-player {
-        max-width: 72px;
-        font-size: 10px;
-    }
-
-    .player {
-        max-width: 100px;
-    }
 
     .team-buttons {
         grid-template-columns: 1fr;
+    }
+
+    .game-header {
+        flex-direction: column;
+
+        align-items: stretch;
+    }
+
+    .trump-info {
+        justify-content: center;
+    }
+
+    .scores {
+        justify-content: center;
+    }
+
+    .my-cards {
+        gap: 1px;
+    }
+
+    .my-cards .card {
+        margin-left: -3px;
+    }
+
+    .my-cards .card:first-child {
+        margin-left: 0;
     }
 }
