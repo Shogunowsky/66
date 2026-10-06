@@ -1,718 +1,1035 @@
-const socket = io();
+const SUITS = ["♥", "♦", "♣", "♠"];
 
-const startScreen = document.getElementById("startScreen");
-const lobbyScreen = document.getElementById("lobbyScreen");
-const gameScreen = document.getElementById("gameScreen");
+const SUIT_NAMES = {
+    "♥": "Czerwo",
+    "♦": "Dzwonek",
+    "♣": "Krzak",
+    "♠": "Wino"
+};
 
-const nicknameInput = document.getElementById("nickname");
-const roomInput = document.getElementById("room");
+const RANKS = ["A", "10", "K", "Q", "J", "9"];
 
-const joinButton = document.getElementById("joinButton");
-const leaveButton = document.getElementById("leaveButton");
-const botsButton = document.getElementById("botsButton");
+const CARD_VALUES = {
+    A: 11,
+    "10": 10,
+    K: 4,
+    Q: 3,
+    J: 2,
+    9: 0
+};
 
-const lobbyRoom = document.getElementById("lobbyRoom");
-const lobbyPlayers = document.getElementById("lobbyPlayers");
-const lobbyStatus = document.getElementById("lobbyStatus");
-
-const team1Button = document.getElementById("team1Button");
-const team2Button = document.getElementById("team2Button");
-const selectedTeam = document.getElementById("selectedTeam");
-
-const trumpDisplay = document.getElementById("trumpDisplay");
-
-const team1Name = document.getElementById("team1Name");
-const team2Name = document.getElementById("team2Name");
-
-const scoreTeam1 = document.getElementById("scoreTeam1");
-const scoreTeam2 = document.getElementById("scoreTeam2");
-
-const topPlayer = document.getElementById("topPlayer");
-const leftPlayer = document.getElementById("leftPlayer");
-const rightPlayer = document.getElementById("rightPlayer");
-
-const playedCards = document.getElementById("playedCards");
-const myCards = document.getElementById("myCards");
-const gameMessage = document.getElementById("gameMessage");
-
-let myTeam = null;
-let myPlayerIndex = null;
+const RANK_POWER = {
+    A: 6,
+    "10": 5,
+    K: 4,
+    Q: 3,
+    J: 2,
+    9: 1
+};
 
 
 /* =========================
-   EKRANY
+   TALIA
 ========================= */
 
-function showScreen(screen) {
-    startScreen.style.display = "none";
-    lobbyScreen.style.display = "none";
-    gameScreen.style.display = "none";
+function createDeck() {
 
-    screen.style.display = "flex";
+    const deck = [];
+
+    for (const suit of SUITS) {
+
+        for (const rank of RANKS) {
+
+            deck.push({
+                suit,
+                rank,
+                value: CARD_VALUES[rank]
+            });
+        }
+    }
+
+    return deck;
+}
+
+
+function shuffle(deck) {
+
+    const result = [...deck];
+
+    for (
+        let i = result.length - 1;
+        i > 0;
+        i--
+    ) {
+
+        const j =
+            Math.floor(
+                Math.random() * (i + 1)
+            );
+
+        [
+            result[i],
+            result[j]
+        ] = [
+            result[j],
+            result[i]
+        ];
+    }
+
+    return result;
 }
 
 
 /* =========================
-   DOŁĄCZANIE DO POKOJU
+   DRUŻYNY
 ========================= */
 
-joinButton.addEventListener("click", () => {
-    const nickname = nicknameInput.value.trim();
-    const room = roomInput.value.trim();
+function getPlayerTeam(game, playerIndex) {
 
-    if (!nickname) {
-        alert("Podaj pseudonim.");
-        return;
+    const player =
+        game.players[playerIndex];
+
+    if (
+        player &&
+        typeof player.team === "number"
+    ) {
+        return player.team;
     }
 
-    if (!room) {
-        alert("Podaj nazwę pokoju.");
-        return;
-    }
+    /*
+       Awaryjnie zachowujemy stary układ,
+       gdyby gra została utworzona bez
+       informacji o drużynie.
+    */
 
-    socket.emit("joinRoom", {
-        nickname,
-        room
-    });
-});
-
-
-/* =========================
-   WYJŚCIE Z POKOJU
-========================= */
-
-leaveButton.addEventListener("click", () => {
-    socket.emit("leaveRoom");
-
-    myTeam = null;
-    myPlayerIndex = null;
-
-    showScreen(startScreen);
-});
-
-
-/* =========================
-   GRAJ Z BOTAMI
-========================= */
-
-botsButton.addEventListener("click", () => {
-
-    botsButton.disabled = true;
-    botsButton.textContent = "URUCHAMIANIE...";
-
-    socket.emit("startWithBots");
-
-});
-
-
-/* =========================
-   WYBÓR DRUŻYNY
-========================= */
-
-team1Button.addEventListener("click", () => {
-    chooseTeam(0);
-});
-
-team2Button.addEventListener("click", () => {
-    chooseTeam(1);
-});
-
-
-function chooseTeam(team) {
-
-    myTeam = team;
-
-    team1Button.classList.toggle("selected", team === 0);
-    team2Button.classList.toggle("selected", team === 1);
-
-    selectedTeam.textContent =
-        `Wybrana drużyna: ${team === 0 ? "1" : "2"}`;
-
-    socket.emit("chooseTeam", {
-        team
-    });
+    return playerIndex % 2;
 }
 
 
 /* =========================
-   DOŁĄCZENIE
+   GRA
 ========================= */
 
-socket.on("joinedRoom", data => {
+function createGame(players) {
 
-    if (data && typeof data.team === "number") {
-        myTeam = data.team;
-    }
+    return {
 
-    showScreen(lobbyScreen);
-});
+        players,
+
+        deck: [],
+
+        hands: [
+            [],
+            [],
+            [],
+            []
+        ],
+
+        trump: null,
+
+        currentPlayer: 0,
+
+        leader: 0,
+
+        phase: "initial",
+
+        trick: [],
+
+        tricksWon: [
+            0,
+            0
+        ],
+
+        /*
+           Punkty zdobyte w aktualnym rozdaniu.
+        */
+
+        scores: [
+            0,
+            0
+        ],
+
+        /*
+           Suma punktów z zakończonych rozdań.
+        */
+
+        overallScores: [
+            0,
+            0
+        ],
+
+        /*
+           Liczba wygranych całych rozdań
+           do 66.
+        */
+
+        gameWins: [
+            0,
+            0
+        ],
+
+        /*
+           Zabezpieczenie przed wielokrotnym
+           zakończeniem tego samego rozdania.
+        */
+
+        handFinished: false,
+
+        winner: null,
+
+        lastTrickWinner: null,
+
+        message: "",
+
+        playerNames:
+            players.map(
+                player => player.name
+            )
+    };
+}
 
 
 /* =========================
-   POCZEKALNIA
+   PIERWSZE 3 KARTY
 ========================= */
 
-socket.on("lobbyState", state => {
+function dealInitialCards(game) {
 
-    showScreen(lobbyScreen);
-
-    lobbyRoom.textContent = state.room || "—";
-
-    lobbyPlayers.innerHTML = "";
-
-    const players = Array.isArray(state.players)
-        ? state.players
-        : [];
-
-    const humanPlayers = players.filter(player => !player.bot);
-
-    lobbyStatus.textContent =
-        `Oczekiwanie na graczy: ${humanPlayers.length}/4`;
-
-    players.forEach(player => {
-
-        const row = document.createElement("div");
-
-        row.className = "lobby-player";
-
-        const name = document.createElement("span");
-
-        name.textContent = player.name || "Gracz";
-
-        row.appendChild(name);
-
-        if (player.bot) {
-
-            const bot = document.createElement("span");
-
-            bot.textContent = " 🤖 BOT";
-
-            row.appendChild(bot);
-        }
-
-        if (typeof player.team === "number") {
-
-            const team = document.createElement("span");
-
-            team.textContent =
-                ` — Drużyna ${player.team + 1}`;
-
-            row.appendChild(team);
-        }
-
-        lobbyPlayers.appendChild(row);
-    });
-
-
-    if (typeof state.myTeam === "number") {
-
-        myTeam = state.myTeam;
-
-        team1Button.classList.toggle(
-            "selected",
-            myTeam === 0
+    game.deck =
+        shuffle(
+            createDeck()
         );
 
-        team2Button.classList.toggle(
-            "selected",
-            myTeam === 1
-        );
+    game.hands = [
+        [],
+        [],
+        [],
+        []
+    ];
 
-        selectedTeam.textContent =
-            `Wybrana drużyna: ${myTeam === 0 ? "1" : "2"}`;
+    game.trick = [];
+
+    game.trump = null;
+
+    game.phase = "trump";
+
+    game.handFinished = false;
+
+    game.winner = null;
+
+    game.lastTrickWinner = null;
+
+    game.scores = [
+        0,
+        0
+    ];
+
+    game.tricksWon = [
+        0,
+        0
+    ];
+
+    /*
+       Każdy dostaje 3 karty.
+    */
+
+    for (let i = 0; i < 3; i++) {
+
+        for (let player = 0; player < 4; player++) {
+
+            const card =
+                game.deck.pop();
+
+            if (card) {
+                game.hands[player].push(card);
+            }
+        }
+    }
+
+    game.message =
+        `Gracz ${game.players[game.currentPlayer].name} obiera kolor.`;
+}
+
+
+/* =========================
+   KOLEJNE 3 KARTY
+========================= */
+
+function dealRemainingCards(game) {
+
+    for (let i = 0; i < 3; i++) {
+
+        for (let player = 0; player < 4; player++) {
+
+            const card =
+                game.deck.pop();
+
+            if (card) {
+                game.hands[player].push(card);
+            }
+        }
+    }
+
+    game.phase = "playing";
+
+    game.leader =
+        game.currentPlayer;
+
+    game.trick = [];
+
+    game.message =
+        `Zaczyna ${game.players[game.currentPlayer].name}.`;
+}
+
+
+/* =========================
+   OBIERANIE KOLORU
+========================= */
+
+function chooseTrump(game, suit) {
+
+    if (game.phase !== "trump") {
+        return {
+            error: "Nie można teraz obierać koloru."
+        };
+    }
+
+    if (!SUITS.includes(suit)) {
+        return {
+            error: "Nieprawidłowy kolor."
+        };
+    }
+
+    game.trump = suit;
+
+    return {
+        success: true
+    };
+}
+
+
+/* =========================
+   PORÓWNYWANIE KART
+========================= */
+
+function beatsCard(
+    game,
+    candidate,
+    current,
+    leadSuit
+) {
+
+    if (!current) {
+        return true;
+    }
+
+    const candidateTrump =
+        candidate.suit === game.trump;
+
+    const currentTrump =
+        current.suit === game.trump;
+
+
+    /*
+       Trump bije nietrump.
+    */
+
+    if (
+        candidateTrump &&
+        !currentTrump
+    ) {
+        return true;
+    }
+
+    if (
+        !candidateTrump &&
+        currentTrump
+    ) {
+        return false;
     }
 
 
     /*
-       Jeśli są już 4 osoby,
-       przycisk gry z botami nie jest potrzebny.
+       Jeżeli obie karty są różnego
+       koloru i żadna nie jest atutem,
+       nie mogą się wzajemnie bić.
     */
 
-    if (humanPlayers.length >= 4) {
-
-        botsButton.disabled = true;
-        botsButton.textContent = "POKÓJ PEŁNY";
-
-    } else {
-
-        botsButton.disabled = false;
-        botsButton.textContent = "GRAJ Z BOTAMI";
+    if (
+        candidate.suit !==
+        current.suit
+    ) {
+        return false;
     }
 
-});
+
+    /*
+       Ten sam kolor:
+       wyższa karta wygrywa.
+    */
+
+    return (
+        RANK_POWER[candidate.rank] >
+        RANK_POWER[current.rank]
+    );
+}
 
 
 /* =========================
-   START GRY
+   ZWYCIĘSKA KARTA
 ========================= */
 
-socket.on("gameStarted", () => {
+function getWinningCard(game) {
 
-    showScreen(gameScreen);
+    if (!game.trick.length) {
+        return null;
+    }
 
-    botsButton.disabled = false;
-    botsButton.textContent = "GRAJ Z BOTAMI";
-});
+    const leadSuit =
+        game.trick[0].card.suit;
+
+    let winner =
+        game.trick[0];
+
+    for (
+        let i = 1;
+        i < game.trick.length;
+        i++
+    ) {
+
+        const play =
+            game.trick[i];
+
+        if (
+            beatsCard(
+                game,
+                play.card,
+                winner.card,
+                leadSuit
+            )
+        ) {
+            winner = play;
+        }
+    }
+
+    return winner;
+}
+
+
+/* =========================
+   LEGALNE KARTY
+========================= */
+
+function getLegalCards(
+    game,
+    playerIndex
+) {
+
+    const hand =
+        game.hands[playerIndex];
+
+    if (!hand || !hand.length) {
+        return [];
+    }
+
+    /*
+       Jeżeli nie ma jeszcze
+       rozpoczętego sztycha,
+       można zagrać wszystko.
+    */
+
+    if (!game.trick.length) {
+        return [...hand];
+    }
+
+    const leadSuit =
+        game.trick[0].card.suit;
+
+    const cardsOfLeadSuit =
+        hand.filter(
+            card =>
+                card.suit === leadSuit
+        );
+
+    /*
+       Jeżeli mamy kolor wyjścia,
+       musimy nim zagrać.
+    */
+
+    if (cardsOfLeadSuit.length > 0) {
+
+        const winner =
+            getWinningCard(game);
+
+        const cardsThatBeat =
+            cardsOfLeadSuit.filter(
+                card =>
+                    beatsCard(
+                        game,
+                        card,
+                        winner.card,
+                        leadSuit
+                    )
+            );
+
+        /*
+           Jeżeli możemy pobić,
+           MUSIMY pobić.
+        */
+
+        if (cardsThatBeat.length > 0) {
+            return cardsThatBeat;
+        }
+
+        /*
+           Nie możemy pobić,
+           więc możemy zagrać dowolną
+           kartę tego koloru.
+        */
+
+        return cardsOfLeadSuit;
+    }
+
+    /*
+       Nie mamy koloru wyjścia.
+       Możemy zagrać dowolną kartę.
+    */
+
+    return [...hand];
+}
+
+
+/* =========================
+   SPRAWDZENIE LEGALNOŚCI
+========================= */
+
+function isLegalCard(
+    game,
+    playerIndex,
+    card
+) {
+
+    const legal =
+        getLegalCards(
+            game,
+            playerIndex
+        );
+
+    return legal.some(
+        legalCard =>
+            legalCard.suit === card.suit &&
+            legalCard.rank === card.rank
+    );
+}
+
+
+/* =========================
+   ZAGRANIE KARTY
+========================= */
+
+function playCard(
+    game,
+    playerIndex,
+    card
+) {
+
+    if (game.handFinished) {
+
+        return {
+            error: "Rozdanie już się zakończyło."
+        };
+    }
+
+    if (game.phase !== "playing") {
+
+        return {
+            error: "Nie można teraz zagrać karty."
+        };
+    }
+
+    if (
+        playerIndex !==
+        game.currentPlayer
+    ) {
+
+        return {
+            error: "To nie jest Twoja kolej."
+        };
+    }
+
+    if (
+        !card ||
+        !card.suit ||
+        !card.rank
+    ) {
+
+        return {
+            error: "Nieprawidłowa karta."
+        };
+    }
+
+    if (
+        !isLegalCard(
+            game,
+            playerIndex,
+            card
+        )
+    ) {
+
+        return {
+            error: "Nie możesz zagrać tej karty."
+        };
+    }
+
+
+    /*
+       Znajdujemy kartę w ręce.
+    */
+
+    const hand =
+        game.hands[playerIndex];
+
+    const cardIndex =
+        hand.findIndex(
+            handCard =>
+                handCard.suit === card.suit &&
+                handCard.rank === card.rank
+        );
+
+    if (cardIndex === -1) {
+
+        return {
+            error: "Nie masz tej karty."
+        };
+    }
+
+
+    const playedCard =
+        hand.splice(
+            cardIndex,
+            1
+        )[0];
+
+
+    game.trick.push({
+        playerIndex,
+
+        playerName:
+            game.players[playerIndex].name,
+
+        team:
+            getPlayerTeam(
+                game,
+                playerIndex
+            ),
+
+        card: playedCard
+    });
+
+
+    /*
+       Meld:
+       obecna wersja nalicza go od razu.
+       W punkcie 7 zmienimy to na punkty
+       oczekujące do czasu wygrania sztycha.
+    */
+
+    if (
+        game.trick.length === 1 &&
+        playedCard.rank === "Q"
+    ) {
+
+        const hasKing =
+            hand.some(
+                handCard =>
+                    handCard.suit ===
+                        playedCard.suit &&
+                    handCard.rank === "K"
+            );
+
+        if (hasKing) {
+
+            const team =
+                getPlayerTeam(
+                    game,
+                    playerIndex
+                );
+
+            const meldPoints =
+                playedCard.suit === game.trump
+                    ? 40
+                    : 20;
+
+            game.scores[team] +=
+                meldPoints;
+
+            game.message =
+                `${game.players[playerIndex].name} melduje ${playedCard.suit} — +${meldPoints}`;
+        }
+    }
+
+
+    /*
+       Jeżeli mamy 4 karty,
+       kończymy sztych.
+    */
+
+    if (game.trick.length === 4) {
+
+        finishTrick(game);
+
+        return {
+            success: true
+        };
+    }
+
+
+    /*
+       Następny gracz zgodnie
+       z ruchem zgodnym z ruchem
+       wskazówek zegara.
+    */
+
+    game.currentPlayer =
+        (playerIndex + 1) % 4;
+
+
+    game.message =
+        `Kolej ${game.players[game.currentPlayer].name}.`;
+
+    return {
+        success: true
+    };
+}
+
+
+/* =========================
+   KONIEC SZTYCHA
+========================= */
+
+function finishTrick(game) {
+
+    const winner =
+        getWinningCard(game);
+
+    if (!winner) {
+        return;
+    }
+
+    const winnerIndex =
+        winner.playerIndex;
+
+    const winnerTeam =
+        getPlayerTeam(
+            game,
+            winnerIndex
+        );
+
+
+    /*
+       Liczymy punkty kart.
+    */
+
+    const trickPoints =
+        calculateTrickPoints(
+            game.trick
+        );
+
+    game.scores[winnerTeam] +=
+        trickPoints;
+
+
+    /*
+       Liczymy liczbę wygranych
+       sztychów przez drużynę.
+    */
+
+    game.tricksWon[winnerTeam]++;
+
+
+    game.lastTrickWinner =
+        winnerIndex;
+
+
+    /*
+       Czy drużyna osiągnęła 66?
+    */
+
+    if (
+        check66(
+            game,
+            winnerTeam
+        )
+    ) {
+        return;
+    }
+
+
+    /*
+       Kolejny sztych zaczyna
+       zwycięzca poprzedniego.
+    */
+
+    game.currentPlayer =
+        winnerIndex;
+
+    game.leader =
+        winnerIndex;
+
+    game.trick = [];
+
+    game.message =
+        `${game.players[winnerIndex].name} bierze sztycha (+${trickPoints}).`;
+}
+
+
+/* =========================
+   PUNKTY SZTYCHA
+========================= */
+
+function calculateTrickPoints(trick) {
+
+    return trick.reduce(
+        (sum, play) =>
+            sum + (
+                CARD_VALUES[
+                    play.card.rank
+                ] || 0
+            ),
+        0
+    );
+}
+
+
+/* =========================
+   66
+========================= */
+
+function check66(
+    game,
+    team
+) {
+
+    if (
+        game.scores[team] < 66
+    ) {
+        return false;
+    }
+
+
+    /*
+       Rozdanie zakończone.
+    */
+
+    game.handFinished = true;
+
+    game.winner = team;
+
+
+    /*
+       Punkty z tego rozdania
+       przechodzą do punktów ogólnych.
+    */
+
+    game.overallScores[team] +=
+        game.scores[team];
+
+
+    /*
+       Drużyna dostaje jedną
+       "całą punktację" za wygrane
+       rozdanie.
+    */
+
+    game.gameWins[team]++;
+
+
+    const winningTeamName =
+        getTeamName(
+            game,
+            team
+        );
+
+
+    game.message =
+        `${winningTeamName} wygrywa rozdanie — ${game.scores[team]} punktów.`;
+
+
+    return true;
+}
+
+
+/* =========================
+   NAZWA DRUŻYNY
+========================= */
+
+function getTeamName(
+    game,
+    team
+) {
+
+    const players =
+        game.players.filter(
+            (player, index) =>
+                getPlayerTeam(
+                    game,
+                    index
+                ) === team
+        );
+
+
+    const names =
+        players
+            .filter(
+                player => !player.bot
+            )
+            .map(
+                player => player.name
+            );
+
+
+    if (names.length > 0) {
+        return names.join(" + ");
+    }
+
+
+    const allNames =
+        players.map(
+            player => player.name
+        );
+
+
+    if (allNames.length > 0) {
+        return allNames.join(" + ");
+    }
+
+
+    return `Drużyna ${team + 1}`;
+}
 
 
 /* =========================
    STAN GRY
 ========================= */
 
-socket.on("gameState", state => {
-
-    showScreen(gameScreen);
-
-    renderGame(state);
-
-});
-
-
-/* =========================
-   BŁĘDY
-========================= */
-
-socket.on("errorMessage", message => {
-
-    alert(message);
-
-    botsButton.disabled = false;
-    botsButton.textContent = "GRAJ Z BOTAMI";
-});
-
-
-/* =========================
-   RENDER GRY
-========================= */
-
-function renderGame(state) {
-
-    if (!state) {
-        return;
-    }
-
-    renderPlayers(state);
-
-    renderScores(state);
-
-    renderTrump(state);
-
-    renderTrick(state);
-
-    renderHand(state);
-
-    if (state.message) {
-        gameMessage.textContent = state.message;
-    }
-}
-
-
-/* =========================
-   GRACZE PRZY STOLE
-========================= */
-
-function renderPlayers(state) {
-
-    const players = Array.isArray(state.players)
-        ? state.players
-        : [];
-
-    if (
-        typeof state.playerIndex === "number"
-    ) {
-        myPlayerIndex = state.playerIndex;
-    }
-
-    if (
-        typeof myPlayerIndex !== "number" ||
-        players.length < 4
-    ) {
-        return;
-    }
-
-    const positions = [];
-
-    for (let i = 0; i < 4; i++) {
-
-        const index =
-            (myPlayerIndex + i) % 4;
-
-        positions.push(players[index]);
-    }
-
-    /*
-        positions:
-
-        0 = ja
-        1 = lewo
-        2 = góra
-        3 = prawo
-    */
-
-    const me = positions[0];
-    const left = positions[1];
-    const top = positions[2];
-    const right = positions[3];
-
-    /*
-        Nie wyświetlamy własnego nicku
-        jako jednego z bocznych graczy.
-    */
-
-    if (leftPlayer) {
-        leftPlayer.textContent =
-            left?.name || "—";
-    }
-
-    if (topPlayer) {
-        topPlayer.textContent =
-            top?.name || "—";
-    }
-
-    if (rightPlayer) {
-        rightPlayer.textContent =
-            right?.name || "—";
-    }
-}
-
-
-/* =========================
-   WYNIK
-========================= */
-
-function renderScores(state) {
-
-    scoreTeam1.textContent =
-        state.scores?.[0] ?? 0;
-
-    scoreTeam2.textContent =
-        state.scores?.[1] ?? 0;
-
-    if (state.teamNames) {
-
-        team1Name.textContent =
-            state.teamNames[0] || "Drużyna 1";
-
-        team2Name.textContent =
-            state.teamNames[1] || "Drużyna 2";
-    }
-}
-
-
-/* =========================
-   ATU
-========================= */
-
-function renderTrump(state) {
-
-    if (!state.trump) {
-
-        trumpDisplay.textContent =
-            "Obrany kolor: —";
-
-        return;
-    }
-
-    const suitName =
-        state.suitNames?.[state.trump]
-        || state.trump;
-
-    trumpDisplay.textContent =
-        `Obrany kolor: ${state.trump} ${suitName}`;
-}
-
-
-/* =========================
-   LEWA / SZTYCH
-========================= */
-
-function renderTrick(state) {
-
-    playedCards.innerHTML = "";
-
-    if (!Array.isArray(state.trick)) {
-        return;
-    }
-
-    state.trick.forEach(play => {
-
-        const wrapper =
-            document.createElement("div");
-
-        wrapper.className = "played-card";
-
-
-        const player =
-            document.createElement("div");
-
-        player.className =
-            "played-card-player";
-
-        player.textContent =
-            play.playerName || "Gracz";
-
-
-        const card =
-            createCardElement(play.card, false);
-
-        wrapper.appendChild(player);
-        wrapper.appendChild(card);
-
-        playedCards.appendChild(wrapper);
-    });
-}
-
-
-/* =========================
-   MOJE KARTY
-========================= */
-
-function renderHand(state) {
-
-    myCards.innerHTML = "";
-
-    if (!Array.isArray(state.hand)) {
-        return;
-    }
-
-    state.hand.forEach(card => {
-
-        const element =
-            createCardElement(card, true);
-
-        myCards.appendChild(element);
-    });
-
-
-    /*
-       Jeżeli to moja kolej,
-       pokazujemy możliwość zagrania.
-    */
-
-    if (
-        state.currentPlayer === myPlayerIndex
-    ) {
-
-        myCards
-            .querySelectorAll(".hand-card")
-            .forEach(card => {
-
-                card.disabled = false;
-
-            });
-
-    } else {
-
-        myCards
-            .querySelectorAll(".hand-card")
-            .forEach(card => {
-
-                card.disabled = true;
-
-            });
-    }
-}
-
-
-/* =========================
-   KARTA
-========================= */
-
-function createCardElement(card, clickable) {
-
-    const button =
-        document.createElement(
-            clickable ? "button" : "div"
-        );
-
-    const suit =
-        card.suit || "";
-
-    const rank =
-        card.rank || "";
-
-    const isRed =
-        suit === "♥" ||
-        suit === "♦";
-
-    button.className =
-        `${clickable ? "hand-card" : "card"} ${isRed ? "red" : "black"}`;
-
-
-    const rankElement =
-        document.createElement("div");
-
-    rankElement.className =
-        "card-rank";
-
-    rankElement.textContent =
-        rank;
-
-
-    const suitElement =
-        document.createElement("div");
-
-    suitElement.className =
-        "card-suit";
-
-    suitElement.textContent =
-        suit;
-
-
-    button.appendChild(rankElement);
-    button.appendChild(suitElement);
-
-
-    if (clickable) {
-
-        button.type = "button";
-
-        button.disabled = true;
-
-        button.addEventListener(
-            "click",
-            () => {
-
-                socket.emit("playCard", {
-                    card
-                });
-
-            }
-        );
-    }
-
-    return button;
-}
-
-
-/* =========================
-   OBIERAJ KOLOR
-========================= */
-
-socket.on("chooseTrump", data => {
-
-    const existing =
-        document.querySelector(".trump-buttons");
-
-    if (existing) {
-        existing.remove();
-    }
-
-    const container =
-        document.createElement("div");
-
-    container.className =
-        "trump-buttons";
-
-
-    const title =
-        document.createElement("div");
-
-    title.className =
-        "trump-title";
-
-    title.textContent =
-        "OBIERAJ";
-
-    container.appendChild(title);
-
-
-    const suits = [
-        {
-            suit: "♥",
-            name: "Czerwo",
-            color: "red"
-        },
-        {
-            suit: "♦",
-            name: "Dzwonek",
-            color: "red"
-        },
-        {
-            suit: "♣",
-            name: "Krzak",
-            color: "black"
-        },
-        {
-            suit: "♠",
-            name: "Wino",
-            color: "black"
-        }
-    ];
-
-
-    suits.forEach(item => {
-
-        const button =
-            document.createElement("button");
-
-        button.type = "button";
-
-        button.className =
-            `trump-button ${item.color}`;
-
-        button.textContent =
-            `${item.suit} ${item.name}`;
-
-
-        button.addEventListener(
-            "click",
-            () => {
-
-                socket.emit("chooseTrump", {
-                    suit: item.suit
-                });
-
-                container.remove();
-            }
+function getGameState(game) {
+
+    const playerNames =
+        game.players.map(
+            player => player.name
         );
 
 
-        container.appendChild(button);
-    });
+    return {
+
+        players:
+            game.players.map(
+                (player, index) => ({
+                    name: player.name,
+                    bot: !!player.bot,
+                    team:
+                        getPlayerTeam(
+                            game,
+                            index
+                        )
+                })
+            ),
+
+        playerNames,
+
+        hands:
+            game.hands,
+
+        trump:
+            game.trump,
+
+        suitNames:
+            SUIT_NAMES,
+
+        currentPlayer:
+            game.currentPlayer,
+
+        leader:
+            game.leader,
+
+        phase:
+            game.phase,
+
+        trick:
+            game.trick,
+
+        /*
+           Punkty gry.
+        */
+
+        scores:
+            game.scores,
+
+        /*
+           Punkty ogólne.
+        */
+
+        overallScores:
+            game.overallScores,
+
+        /*
+           Całe punkty.
+        */
+
+        gameWins:
+            game.gameWins,
+
+        tricksWon:
+            game.tricksWon,
+
+        handFinished:
+            game.handFinished,
+
+        winner:
+            game.winner,
+
+        lastTrickWinner:
+            game.lastTrickWinner,
+
+        message:
+            game.message,
+
+        teamNames: [
+            getTeamName(game, 0),
+            getTeamName(game, 1)
+        ]
+    };
+}
 
 
-    document.body.appendChild(container);
-});
+module.exports = {
+    SUITS,
+    SUIT_NAMES,
+    RANKS,
+    CARD_VALUES,
+    RANK_POWER,
 
+    createDeck,
+    shuffle,
 
-/* =========================
-   KONIEC WYBORU ATU
-========================= */
+    createGame,
 
-socket.on("trumpChosen", data => {
+    dealInitialCards,
+    dealRemainingCards,
 
-    const existing =
-        document.querySelector(".trump-buttons");
+    chooseTrump,
 
-    if (existing) {
-        existing.remove();
-    }
+    beatsCard,
+    getWinningCard,
 
-});
+    getLegalCards,
+    isLegalCard,
 
+    playCard,
+    finishTrick,
 
-/* =========================
-   POŁĄCZENIE
-========================= */
+    calculateTrickPoints,
+    check66,
 
-socket.on("connect", () => {
-
-    console.log(
-        "Połączono z serwerem:",
-        socket.id
-    );
-
-});
-
-
-/* =========================
-   ROZŁĄCZENIE
-========================= */
-
-socket.on("disconnect", () => {
-
-    gameMessage.textContent =
-        "Połączenie z serwerem zostało przerwane.";
-
-});
+    getGameState
+};
