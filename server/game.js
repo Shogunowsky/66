@@ -1,392 +1,523 @@
-const socket = io();
+const SUITS = ["♥", "♦", "♣", "♠"];
 
-let mySeat = null;
-let currentGameState = null;
+const SUIT_NAMES = {
+  "♥": "Czerwo",
+  "♦": "Dzwonek",
+  "♣": "Krzak",
+  "♠": "Wino"
+};
 
-const startScreen = document.getElementById("startScreen");
-const lobbyScreen = document.getElementById("lobbyScreen");
-const gameScreen = document.getElementById("gameScreen");
+const RANKS = ["A", "10", "K", "Q", "J", "9"];
 
-const nicknameInput = document.getElementById("nickname");
-const roomInput = document.getElementById("room");
+const CARD_VALUES = {
+  A: 11,
+  10: 10,
+  K: 4,
+  Q: 3,
+  J: 2,
+  9: 0
+};
 
-const joinButton = document.getElementById("joinButton");
-const leaveButton = document.getElementById("leaveButton");
+const RANK_POWER = {
+  A: 6,
+  10: 5,
+  K: 4,
+  Q: 3,
+  J: 2,
+  9: 1
+};
 
-const lobbyRoom = document.getElementById("lobbyRoom");
-const lobbyPlayers = document.getElementById("lobbyPlayers");
+function createDeck() {
+  const deck = [];
 
-const myCards = document.getElementById("myCards");
-const playedCards = document.getElementById("playedCards");
-
-const gameMessage = document.getElementById("gameMessage");
-const trumpDisplay = document.getElementById("trumpDisplay");
-
-const scoreTeam1 = document.getElementById("scoreTeam1");
-const scoreTeam2 = document.getElementById("scoreTeam2");
-
-const topPlayer = document.getElementById("topPlayer");
-const leftPlayer = document.getElementById("leftPlayer");
-const rightPlayer = document.getElementById("rightPlayer");
-
-const trumpButtons = document.createElement("div");
-
-trumpButtons.className = "trump-buttons";
-
-trumpButtons.innerHTML = `
-  <button data-suit="♥">♥ Czerwo</button>
-  <button data-suit="♦">♦ Dzwonek</button>
-  <button data-suit="♣">♣ Krzak</button>
-  <button data-suit="♠">♠ Wino</button>
-`;
-
-document.body.appendChild(trumpButtons);
-
-trumpButtons.style.display = "none";
-
-trumpButtons
-  .querySelectorAll("button")
-  .forEach(button => {
-    button.addEventListener("click", () => {
-      const suit = button.dataset.suit;
-
-      if (
-        !currentGameState ||
-        currentGameState.phase !== "trump" ||
-        currentGameState.chooser !== mySeat
-      ) {
-        return;
-      }
-
-      socket.emit("chooseTrump", {
-        suit
+  for (const suit of SUITS) {
+    for (const rank of RANKS) {
+      deck.push({
+        suit,
+        rank,
+        id: `${rank}${suit}`
       });
-    });
-  });
+    }
+  }
 
-joinButton.addEventListener("click", () => {
-  const nickname =
-    nicknameInput.value.trim() || "Gracz";
-
-  const room =
-    roomInput.value.trim().toUpperCase() || "TEST";
-
-  socket.emit("joinRoom", {
-    nickname,
-    room
-  });
-});
-
-leaveButton.addEventListener("click", () => {
-  socket.emit("leaveRoom");
-
-  location.reload();
-});
-
-socket.on("joinedRoom", data => {
-  mySeat = data.seat;
-
-  startScreen.style.display = "none";
-  lobbyScreen.style.display = "block";
-
-  lobbyRoom.textContent =
-    `Pokój: ${data.room}`;
-});
-
-socket.on("lobbyState", data => {
-  lobbyRoom.textContent =
-    `Pokój: ${data.room}`;
-
-  lobbyPlayers.innerHTML = "";
-
-  data.players.forEach(player => {
-    const div =
-      document.createElement("div");
-
-    div.className = "lobby-player";
-
-    div.textContent =
-      `${player.seat + 1}. ${player.name}${player.bot ? " 🤖" : ""}`;
-
-    lobbyPlayers.appendChild(div);
-  });
-});
-
-socket.on("joinError", data => {
-  alert(data.message);
-});
-
-socket.on("gameError", data => {
-  alert(data.message);
-});
-
-socket.on("gameState", state => {
-  currentGameState = state;
-
-  lobbyScreen.style.display = "none";
-  gameScreen.style.display = "block";
-
-  renderGame(state);
-});
-
-function renderGame(state) {
-  renderPlayers(state);
-  renderTrump(state);
-  renderScore(state);
-  renderTrick(state);
-  renderMyHand(state);
-  renderMessage(state);
-  renderTrumpButtons(state);
+  return deck;
 }
 
-function renderPlayers(state) {
-  const names = state.players || [];
+function shuffle(deck) {
+  const copy = [...deck];
 
-  /*
-   * Nazwy graczy pobieramy z danych gry,
-   * jeżeli serwer je udostępnia.
-   */
-  if (state.playerNames) {
-    const players = state.playerNames;
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
 
-    const topSeat =
-      (mySeat + 2) % 4;
-
-    const leftSeat =
-      (mySeat + 1) % 4;
-
-    const rightSeat =
-      (mySeat + 3) % 4;
-
-    if (topPlayer) {
-      topPlayer.textContent =
-        players[topSeat] || "Gracz";
-    }
-
-    if (leftPlayer) {
-      leftPlayer.textContent =
-        players[leftSeat] || "Gracz";
-    }
-
-    if (rightPlayer) {
-      rightPlayer.textContent =
-        players[rightSeat] || "Gracz";
-    }
+    [copy[i], copy[j]] = [copy[j], copy[i]];
   }
+
+  return copy;
 }
 
-function renderTrump(state) {
-  if (!trumpDisplay) {
-    return;
-  }
+function createGame(players, firstChooser = 0) {
+  return {
+    players,
 
-  if (!state.trump) {
-    trumpDisplay.textContent =
-      "Atu: —";
+    deck: [],
 
-    return;
-  }
+    trump: null,
 
-  const names = {
-    "♥": "Czerwo",
-    "♦": "Dzwonek",
-    "♣": "Krzak",
-    "♠": "Wino"
+    chooser: firstChooser,
+
+    currentPlayer: firstChooser,
+
+    phase: "dealing",
+
+    hands: [[], [], [], []],
+
+    trick: [],
+
+    trickWinner: null,
+
+    teamPoints: [0, 0],
+
+    melds: [0, 0],
+
+    lastMessage: "Rozdawanie kart..."
   };
-
-  trumpDisplay.textContent =
-    `Atu: ${state.trump} ${names[state.trump]}`;
 }
 
-function renderScore(state) {
-  if (scoreTeam1) {
-    scoreTeam1.textContent =
-      state.teamPoints?.[0] ?? 0;
-  }
+function dealInitialCards(game) {
+  game.deck = shuffle(createDeck());
 
-  if (scoreTeam2) {
-    scoreTeam2.textContent =
-      state.teamPoints?.[1] ?? 0;
-  }
-}
+  game.hands = [[], [], [], []];
 
-function renderTrick(state) {
-  if (!playedCards) {
-    return;
-  }
-
-  playedCards.innerHTML = "";
-
-  if (!state.trick) {
-    return;
-  }
-
-  state.trick.forEach(item => {
-    const card =
-      document.createElement("div");
-
-    card.className =
-      "played-card";
-
-    card.textContent =
-      `${item.card.rank}${item.card.suit}`;
-
-    card.dataset.player =
-      item.player;
-
-    playedCards.appendChild(card);
-  });
-}
-
-function renderMyHand(state) {
-  if (!myCards) {
-    return;
-  }
-
-  myCards.innerHTML = "";
-
-  const hand =
-    state.hands?.[mySeat] || [];
-
-  const legalCards =
-    getLegalCardIds(state);
-
-  hand.forEach(card => {
-    if (card.hidden) {
-      return;
+  for (let round = 0; round < 3; round++) {
+    for (let player = 0; player < 4; player++) {
+      game.hands[player].push(game.deck.pop());
     }
+  }
 
-    const button =
-      document.createElement("button");
+  game.trump = null;
+  game.trick = [];
+  game.trickWinner = null;
 
-    button.className =
-      "card";
+  game.phase = "trump";
 
-    button.textContent =
-      `${card.rank}${card.suit}`;
+  game.currentPlayer = game.chooser;
 
-    const isLegal =
-      legalCards.includes(card.id);
+  game.lastMessage =
+    `Gracz ${game.chooser + 1} wybiera atu.`;
+
+  return game;
+}
+
+function dealRemainingCards(game) {
+  for (let round = 0; round < 3; round++) {
+    for (let player = 0; player < 4; player++) {
+      const card = game.deck.pop();
+
+      if (card) {
+        game.hands[player].push(card);
+      }
+    }
+  }
+
+  game.phase = "playing";
+
+  game.currentPlayer = game.chooser;
+
+  game.lastMessage =
+    `Atu: ${SUIT_NAMES[game.trump]} (${game.trump}). Gracz ${game.chooser + 1} wychodzi.`;
+
+  return game;
+}
+
+function chooseTrump(game, playerIndex, suit) {
+  if (game.phase !== "trump") {
+    return {
+      ok: false,
+      error: "Nie trwa wybieranie atu."
+    };
+  }
+
+  if (playerIndex !== game.chooser) {
+    return {
+      ok: false,
+      error: "Nie jest Twoja kolej na wybór atu."
+    };
+  }
+
+  if (!SUITS.includes(suit)) {
+    return {
+      ok: false,
+      error: "Nieprawidłowy kolor atu."
+    };
+  }
+
+  game.trump = suit;
+
+  dealRemainingCards(game);
+
+  return {
+    ok: true
+  };
+}
+
+function beatsCard(a, b, leadSuit, trump) {
+  const aTrump = a.suit === trump;
+  const bTrump = b.suit === trump;
+
+  if (aTrump && !bTrump) {
+    return true;
+  }
+
+  if (!aTrump && bTrump) {
+    return false;
+  }
+
+  if (a.suit !== b.suit) {
+    return false;
+  }
+
+  return RANK_POWER[a.rank] > RANK_POWER[b.rank];
+}
+
+function getWinningCard(trick, trump) {
+  if (!trick.length) {
+    return null;
+  }
+
+  const leadSuit = trick[0].card.suit;
+
+  let winning = trick[0];
+
+  for (let i = 1; i < trick.length; i++) {
+    const candidate = trick[i];
 
     if (
-      state.phase === "playing" &&
-      state.currentPlayer === mySeat &&
-      isLegal
+      beatsCard(
+        candidate.card,
+        winning.card,
+        leadSuit,
+        trump
+      )
     ) {
-      button.classList.add("legal");
-
-      button.addEventListener(
-        "click",
-        () => {
-          socket.emit("playCard", {
-            cardId: card.id
-          });
-        }
-      );
-    } else {
-      button.classList.add("disabled");
+      winning = candidate;
     }
+  }
 
-    myCards.appendChild(button);
-  });
+  return winning;
 }
 
-function getLegalCardIds(state) {
-  /*
-   * Serwer jest ostatecznym sędzią.
-   *
-   * Tutaj robimy tylko wizualne oznaczenie
-   * kart, które najprawdopodobniej można zagrać.
-   *
-   * Jeśli nie ma informacji o legalnych kartach,
-   * wszystkie są traktowane jako nieaktywne.
-   */
+function getLegalCards(game, playerIndex) {
+  const hand = game.hands[playerIndex];
 
-  if (
-    state.phase !== "playing" ||
-    state.currentPlayer !== mySeat
-  ) {
+  if (!hand || !hand.length) {
     return [];
   }
 
-  const hand =
-    state.hands?.[mySeat] || [];
-
-  if (!state.trick?.length) {
-    return hand
-      .filter(card => !card.hidden)
-      .map(card => card.id);
+  // Pierwsza karta lewy — można wyjść czymkolwiek.
+  if (!game.trick.length) {
+    return [...hand];
   }
 
-  const leadSuit =
-    state.trick[0].card.suit;
+  const leadSuit = game.trick[0].card.suit;
 
-  const cardsOfLeadSuit =
-    hand.filter(
-      card =>
-        !card.hidden &&
-        card.suit === leadSuit
-    );
+  const cardsOfLeadSuit = hand.filter(
+    card => card.suit === leadSuit
+  );
 
+  const winning = getWinningCard(
+    game.trick,
+    game.trump
+  );
+
+  /*
+   * MASZ KOLOR WYJŚCIA
+   *
+   * Musisz:
+   * - przebić, jeśli możesz;
+   * - jeśli nie możesz, możesz zagrać
+   *   dowolną niższą kartę tego koloru.
+   */
   if (cardsOfLeadSuit.length > 0) {
-    /*
-     * W tej chwili klient nie zna pełnej
-     * logiki zwycięskiej karty.
-     *
-     * Zaznaczamy więc wszystkie karty
-     * koloru wyjścia.
-     *
-     * Serwer i tak odrzuci nielegalne zagranie.
-     */
-    return cardsOfLeadSuit.map(
-      card => card.id
+    const cardsThatBeat =
+      cardsOfLeadSuit.filter(card =>
+        beatsCard(
+          card,
+          winning.card,
+          leadSuit,
+          game.trump
+        )
+      );
+
+    if (cardsThatBeat.length > 0) {
+      return cardsThatBeat;
+    }
+
+    return cardsOfLeadSuit;
+  }
+
+  /*
+   * NIE MASZ KOLORU WYJŚCIA
+   *
+   * Normalnie możesz zagrać dowolną kartę.
+   *
+   * WYJĄTEK:
+   * jeśli obecnie wygrywa atu i masz wyższe atu,
+   * musisz nim przebić.
+   */
+  const winningIsTrump =
+    winning.card.suit === game.trump;
+
+  if (winningIsTrump) {
+    const trumpCards = hand.filter(
+      card => card.suit === game.trump
     );
+
+    const higherTrumpCards =
+      trumpCards.filter(card =>
+        beatsCard(
+          card,
+          winning.card,
+          leadSuit,
+          game.trump
+        )
+      );
+
+    if (higherTrumpCards.length > 0) {
+      return higherTrumpCards;
+    }
   }
 
-  return hand
-    .filter(card => !card.hidden)
-    .map(card => card.id);
+  return [...hand];
 }
 
-function renderMessage(state) {
-  if (!gameMessage) {
+function isLegalCard(game, playerIndex, cardId) {
+  const legalCards =
+    getLegalCards(game, playerIndex);
+
+  return legalCards.some(
+    card => card.id === cardId
+  );
+}
+
+function playCard(game, playerIndex, cardId) {
+  if (game.phase !== "playing") {
+    return {
+      ok: false,
+      error: "Gra nie jest obecnie w fazie rozgrywania."
+    };
+  }
+
+  if (playerIndex !== game.currentPlayer) {
+    return {
+      ok: false,
+      error: "To nie jest Twoja kolej."
+    };
+  }
+
+  const hand = game.hands[playerIndex];
+
+  const cardIndex = hand.findIndex(
+    card => card.id === cardId
+  );
+
+  if (cardIndex === -1) {
+    return {
+      ok: false,
+      error: "Nie masz tej karty."
+    };
+  }
+
+  if (!isLegalCard(game, playerIndex, cardId)) {
+    return {
+      ok: false,
+      error: "Nie możesz zagrać tej karty."
+    };
+  }
+
+  const card = hand.splice(cardIndex, 1)[0];
+
+  game.trick.push({
+    player: playerIndex,
+    card
+  });
+
+  /*
+   * MELD:
+   * Meld następuje, kiedy wychodzimy damą
+   * i mamy w ręce króla tego samego koloru.
+   */
+  if (
+    game.trick.length === 1 &&
+    card.rank === "Q"
+  ) {
+    const hasKing = hand.some(
+      c =>
+        c.suit === card.suit &&
+        c.rank === "K"
+    );
+
+    if (hasKing) {
+      const meldPoints =
+        card.suit === game.trump ? 40 : 20;
+
+      const team = playerIndex % 2;
+
+      game.melds[team] += meldPoints;
+      game.teamPoints[team] += meldPoints;
+
+      game.lastMessage =
+        `Gracz ${playerIndex + 1} melduje ${meldPoints} pkt!`;
+
+      /*
+       * 66+ kończy grę OD RAZU.
+       */
+      if (game.teamPoints[team] >= 66) {
+        game.phase = "finished";
+
+        game.lastMessage =
+          `Koniec! Drużyna ${team + 1} zdobyła ${game.teamPoints[team]} pkt.`;
+
+        return {
+          ok: true
+        };
+      }
+    }
+  }
+
+  game.currentPlayer =
+    (playerIndex + 1) % 4;
+
+  if (game.trick.length === 4) {
+    finishTrick(game);
+  }
+
+  return {
+    ok: true
+  };
+}
+
+function finishTrick(game) {
+  const winning = getWinningCard(
+    game.trick,
+    game.trump
+  );
+
+  if (!winning) {
     return;
   }
 
-  gameMessage.textContent =
-    state.lastMessage || "";
+  const winner = winning.player;
 
-  if (
-    state.phase === "trump" &&
-    state.chooser === mySeat
-  ) {
-    gameMessage.textContent =
-      "Wybierz atu.";
-  }
+  const trickPoints =
+    calculateTrickPoints(game.trick);
 
-  if (
-    state.phase === "playing" &&
-    state.currentPlayer === mySeat
-  ) {
-    gameMessage.textContent =
-      "Twoja kolej.";
-  }
+  const team = winner % 2;
 
-  if (state.phase === "finished") {
-    gameMessage.textContent =
-      state.lastMessage || "Koniec gry.";
-  }
-}
+  game.teamPoints[team] += trickPoints;
 
-function renderTrumpButtons(state) {
-  if (!trumpButtons) {
+  game.trickWinner = winner;
+
+  game.lastMessage =
+    `Lewę bierze gracz ${winner + 1} (+${trickPoints} pkt).`;
+
+  /*
+   * 66 lub więcej = natychmiastowy koniec.
+   */
+  if (game.teamPoints[team] >= 66) {
+    game.phase = "finished";
+
+    game.lastMessage =
+      `Koniec! Drużyna ${team + 1} zdobyła ${game.teamPoints[team]} pkt.`;
+
     return;
   }
 
-  const shouldShow =
-    state.phase === "trump" &&
-    state.chooser === mySeat;
+  game.trick = [];
 
-  trumpButtons.style.display =
-    shouldShow ? "flex" : "none";
+  game.currentPlayer = winner;
 }
+
+function calculateTrickPoints(trick) {
+  return trick.reduce(
+    (sum, played) =>
+      sum + CARD_VALUES[played.card.rank],
+    0
+  );
+}
+
+function check66(game) {
+  return (
+    game.teamPoints[0] >= 66 ||
+    game.teamPoints[1] >= 66
+  );
+}
+
+function getGameState(game, viewerIndex = null) {
+  return {
+    phase: game.phase,
+
+    trump: game.trump,
+
+    chooser: game.chooser,
+
+    currentPlayer: game.currentPlayer,
+
+    teamPoints: [...game.teamPoints],
+
+    melds: [...game.melds],
+
+    playerNames: game.players.map(
+      player => player.name
+    ),
+
+    trick: game.trick.map(item => ({
+      player: item.player,
+      card: item.card
+    })),
+
+    hands: game.hands.map(
+      (hand, index) => {
+        if (index === viewerIndex) {
+          return [...hand];
+        }
+
+        return hand.map(() => ({
+          hidden: true
+        }));
+      }
+    ),
+
+    handCount: game.hands.map(
+      hand => hand.length
+    ),
+
+    lastMessage: game.lastMessage
+  };
+}
+
+module.exports = {
+  SUITS,
+  SUIT_NAMES,
+  RANKS,
+  CARD_VALUES,
+  RANK_POWER,
+
+  createDeck,
+  shuffle,
+  createGame,
+
+  dealInitialCards,
+  dealRemainingCards,
+
+  chooseTrump,
+
+  getLegalCards,
+  isLegalCard,
+  playCard,
+
+  getWinningCard,
+  calculateTrickPoints,
+  check66,
+
+  getGameState
+};
