@@ -1,117 +1,129 @@
+const {
+  getLegalCards
+} = require("./game");
+
 const BOT_NAMES = [
-    "Górnik",
-    "Sztygar",
-    "Kret",
-    "Węgielek"
+  "Biały",
+  "PowLeeShin",
+  "Nadsztygar",
+  "Zgred"
 ];
 
-function createBot(seat) {
-    return {
-        id: `bot-${seat}-${Date.now()}`,
-        nickname: BOT_NAMES[seat] || `Bot ${seat + 1}`,
-        seat,
-        team: seat % 2 === 0 ? 0 : 1,
-        isBot: true,
-        hand: [],
-        points: 0,
-        tricks: 0,
-        active: true
-    };
+function fillBots(players) {
+  while (players.length < 4) {
+    const seat = players.length;
+
+    players.push({
+      id: `bot-${seat}`,
+      name: BOT_NAMES[seat] || `Bot ${seat + 1}`,
+      seat,
+      bot: true
+    });
+  }
+
+  return players;
 }
 
-function fillBots(players, maxPlayers = 4) {
-    const result = [...players];
+function chooseBotTrump(game, playerIndex) {
+  const hand = game.hands[playerIndex];
 
-    for (let seat = 0; seat < maxPlayers; seat++) {
-        const occupied = result.some(player => player.seat === seat);
+  if (!hand || hand.length === 0) {
+    return game.trump;
+  }
 
-        if (!occupied) {
-            result.push(createBot(seat));
-        }
+  const suitCounts = {};
+
+  for (const suit of game.constructor?.SUITS || []) {
+    suitCounts[suit] = 0;
+  }
+
+  for (const card of hand) {
+    suitCounts[card.suit] =
+      (suitCounts[card.suit] || 0) + 1;
+  }
+
+  let bestSuit = hand[0].suit;
+  let bestCount = 0;
+
+  for (const suit of Object.keys(suitCounts)) {
+    if (suitCounts[suit] > bestCount) {
+      bestCount = suitCounts[suit];
+      bestSuit = suit;
     }
+  }
 
-    result.sort((a, b) => a.seat - b.seat);
-
-    return result;
+  return bestSuit;
 }
 
-function isBot(player) {
-    return Boolean(player && player.isBot);
+function chooseBotCard(game, playerIndex) {
+  const legalCards =
+    getLegalCards(game, playerIndex);
+
+  if (!legalCards.length) {
+    return null;
+  }
+
+  /*
+   * Na razie bot gra możliwie bezpiecznie:
+   *
+   * - jeśli może legalnie przebić, wybiera
+   *   najniższą kartę, która wystarczy;
+   * - jeśli nie może przebić, oddaje
+   *   najniższą kartę;
+   * - przy kilku możliwościach preferuje
+   *   karty o mniejszej wartości punktowej.
+   */
+
+  const cardValue = {
+    A: 11,
+    "10": 10,
+    K: 4,
+    Q: 3,
+    J: 2,
+    9: 0
+  };
+
+  const sorted = [...legalCards].sort(
+    (a, b) =>
+      cardValue[a.rank] -
+      cardValue[b.rank]
+  );
+
+  /*
+   * Jeżeli mamy kilka kart o tej samej
+   * wartości, zachowujemy pierwszą.
+   */
+  return sorted[0].id;
 }
 
-function chooseBotTrump(game, bot) {
-    if (!isBot(bot)) {
-        return null;
-    }
+function removeCardFromBot(
+  game,
+  playerIndex,
+  cardId
+) {
+  const hand = game.hands[playerIndex];
 
-    const suits = ["♥", "♦", "♣", "♠"];
+  if (!hand) {
+    return false;
+  }
 
-    const counts = {
-        "♥": 0,
-        "♦": 0,
-        "♣": 0,
-        "♠": 0
-    };
+  const index = hand.findIndex(
+    card => card.id === cardId
+  );
 
-    for (const card of bot.hand) {
-        counts[card.suit]++;
-    }
+  if (index === -1) {
+    return false;
+  }
 
-    let bestSuit = suits[0];
+  hand.splice(index, 1);
 
-    for (const suit of suits) {
-        if (counts[suit] > counts[bestSuit]) {
-            bestSuit = suit;
-        }
-    }
-
-    return bestSuit;
-}
-
-function chooseBotCard(game, bot) {
-    if (!isBot(bot) || !bot.hand.length) {
-        return null;
-    }
-
-    // Na razie bot wybiera kartę o najmniejszej wartości.
-    // Później dodamy tutaj pełną logikę Sznapsa.
-    let selected = bot.hand[0];
-
-    for (const card of bot.hand) {
-        if (card.value < selected.value) {
-            selected = card;
-        }
-    }
-
-    return selected;
-}
-
-function removeCardFromBot(bot, card) {
-    if (!isBot(bot)) {
-        return false;
-    }
-
-    const index = bot.hand.findIndex(
-        c =>
-            c.suit === card.suit &&
-            c.rank === card.rank
-    );
-
-    if (index === -1) {
-        return false;
-    }
-
-    bot.hand.splice(index, 1);
-
-    return true;
+  return true;
 }
 
 module.exports = {
-    BOT_NAMES,
-    createBot,
-    fillBots,
-    isBot,
-    chooseBotTrump,
-    chooseBotCard,
-    removeCardFromBot
+  BOT_NAMES,
+  fillBots,
+  chooseBotTrump,
+  chooseBotCard,
+  removeCardFromBot
 };
