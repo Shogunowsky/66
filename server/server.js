@@ -20,7 +20,6 @@ const {
 
 const app = express();
 const server = http.createServer(app);
-
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
@@ -31,70 +30,74 @@ const rooms = new Map();
 
 
 /* =========================
-   POKOJE
+   POMOCNICZE
 ========================= */
 
-function createRoom(roomName) {
-    const room = {
-        name: roomName,
-        players: [],
-        game: null,
-        started: false
-    };
-
-    rooms.set(roomName, room);
-
-    return room;
+function getRoomPlayers(room) {
+    return room.players || [];
 }
 
-function getRoom(roomName) {
-    return rooms.get(roomName);
+function getHumanPlayers(room) {
+    return getRoomPlayers(room).filter(
+        player => !player.bot
+    );
 }
-
-
-/* =========================
-   DRUŻYNY
-========================= */
 
 function getTeamPlayers(room, team) {
-    return room.players.filter(
+    return getRoomPlayers(room).filter(
         player => player.team === team
     );
 }
 
 function getTeamName(room, team) {
-    const players =
-        getTeamPlayers(room, team);
 
-    if (!players.length) {
-        return `Drużyna ${team + 1}`;
+    const names = getTeamPlayers(room, team)
+        .filter(player => !player.bot)
+        .map(player => player.name);
+
+    if (names.length > 0) {
+        return names.join(" + ");
     }
 
-    return players
-        .map(player => player.name)
-        .join(" + ");
+    const botNames = getTeamPlayers(room, team)
+        .map(player => player.name);
+
+    if (botNames.length > 0) {
+        return botNames.join(" + ");
+    }
+
+    return `Drużyna ${team + 1}`;
 }
 
 
 /* =========================
-   STAN POCZEKALNI
+   POCZEKALNIA
 ========================= */
 
 function sendLobby(room) {
+
+    if (!room || !room.players) {
+        return;
+    }
+
     const teamNames = [
         getTeamName(room, 0),
         getTeamName(room, 1)
     ];
 
     room.players.forEach(player => {
-        io.to(player.id).emit(
+
+        if (!player.socketId) {
+            return;
+        }
+
+        io.to(player.socketId).emit(
             "lobbyState",
             {
                 room: room.name,
 
                 players: room.players.map(p => ({
                     name: p.name,
-                    seat: p.seat,
                     bot: !!p.bot,
                     team:
                         typeof p.team === "number"
@@ -119,40 +122,80 @@ function sendLobby(room) {
 ========================= */
 
 function sendGameState(room) {
-    if (!room.game) {
+
+    if (!room || !room.game) {
         return;
     }
 
-    room.players.forEach(player => {
-        if (player.bot) {
-            return;
+    const baseState =
+        getGameState(room.game);
+
+    const teamNames = [
+        getTeamName(room, 0),
+        getTeamName(room, 1)
+    ];
+
+    room.players.forEach(
+        (player, index) => {
+
+            if (!player.socketId) {
+                return;
+            }
+
+            const state = {
+                ...baseState,
+
+                playerIndex: index,
+
+                playerNames:
+                    room.players.map(
+                        p => p.name
+                    ),
+
+                teamNames,
+
+                myTeam:
+                    typeof player.team === "number"
+                        ? player.team
+                        : null
+            };
+
+            io.to(player.socketId).emit(
+                "gameState",
+                state
+            );
         }
+    );
+}
 
-        const state =
-            getGameState(
-                room.game,
-                player.seat
-            );
 
-        state.playerNames =
-            room.players.map(
-                p => p.name
-            );
+/* =========================
+   DOBIERANIE BOTÓW
+========================= */
 
-        state.myTeam =
-            room.players[player.seat]?.team
-                ?? null;
+function assignBotTeams(room) {
 
-        state.teamNames = [
-            getTeamName(room, 0),
-            getTeamName(room, 1)
-        ];
+    let team0 =
+        getTeamPlayers(room, 0).length;
 
-        io.to(player.id).emit(
-            "gameState",
-            state
-        );
-    });
+    let team1 =
+        getTeamPlayers(room, 1).length;
+
+    room.players
+        .filter(player => player.bot)
+        .forEach(bot => {
+
+            if (team0 < 2) {
+
+                bot.team = 0;
+                team0++;
+
+            } else if (team1 < 2) {
+
+                bot.team = 1;
+                team1++;
+            }
+        });
 }
 
 
@@ -161,201 +204,223 @@ function sendGameState(room) {
 ========================= */
 
 function startGame(room) {
-    if (room.started) {
-        return;
+
+    if (!room || room.game) {
+        return false;
     }
 
-    /*
-     * Jeżeli ktoś nie wybrał drużyny,
-     * nie pozwalamy rozpocząć gry.
-     */
+    const humans =
+        getHumanPlayers(room);
 
-    const playersWithoutTeam =
-        room.players.filter(
+    /*
+       Każdy człowiek musi mieć drużynę.
+    */
+
+    const missingTeam =
+        humans.some(
             player =>
                 typeof player.team !== "number"
         );
 
-    if (playersWithoutTeam.length > 0) {
-        return;
+    if (missingTeam) {
+        return false;
     }
 
     /*
-     * Maksymalnie dwóch graczy
-     * w jednej drużynie.
-     */
+       Żadna drużyna nie może mieć
+       więcej niż dwóch graczy.
+    */
 
     if (
-        getTeamPlayers(room, 0).length > 2 ||
-        getTeamPlayers(room, 1).length > 2
+        getTeamPlayers(room, 0).filter(
+            p => !p.bot
+        ).length > 2
+        ||
+        getTeamPlayers(room, 1).filter(
+            p => !p.bot
+        ).length > 2
     ) {
-        return;
+        return false;
     }
 
     /*
-     * Uzupełniamy brakujące miejsca botami.
-     */
+       Jeżeli brakuje graczy,
+       uzupełniamy botami.
+    */
 
     fillBots(room.players);
 
     /*
-     * Boty dostają drużyny tak,
-     * żeby zachować układ 2 + 2.
-     */
+       Boty dostają brakujące miejsca
+       w drużynach.
+    */
 
-    room.players.forEach(player => {
-        if (
-            player.bot &&
-            typeof player.team !== "number"
-        ) {
-            const team0 =
-                getTeamPlayers(room, 0).length;
-
-            const team1 =
-                getTeamPlayers(room, 1).length;
-
-            player.team =
-                team0 <= team1 ? 0 : 1;
-        }
-    });
+    assignBotTeams(room);
 
     /*
-     * Sprawdzamy ponownie układ drużyn.
-     */
+       Musimy mieć dokładnie 2 + 2.
+    */
+
+    const team0 =
+        getTeamPlayers(room, 0);
+
+    const team1 =
+        getTeamPlayers(room, 1);
 
     if (
-        getTeamPlayers(room, 0).length !== 2 ||
-        getTeamPlayers(room, 1).length !== 2
+        team0.length !== 2 ||
+        team1.length !== 2
     ) {
-        return;
+        return false;
     }
 
-    room.started = true;
+    /*
+       Tworzymy właściwą grę.
+    */
 
     room.game =
         createGame(room.players);
 
+    /*
+       Pierwsze 3 karty.
+    */
+
     dealInitialCards(room.game);
+
+    /*
+       Powiadamiamy klientów.
+    */
+
+    room.players.forEach(player => {
+
+        if (player.socketId) {
+
+            io.to(player.socketId).emit(
+                "gameStarted"
+            );
+        }
+    });
 
     sendGameState(room);
 
-    processBots(room);
+    /*
+       Jeżeli zaczyna bot,
+       obsługujemy jego ruch.
+    */
+
+    processBotTurn(room);
+
+    return true;
 }
 
 
 /* =========================
-   BOTY
+   BOT — KOLEJKA
 ========================= */
 
-function chooseTrumpForBot(room) {
+function processBotTurn(room) {
+
+    if (!room || !room.game) {
+        return;
+    }
+
     const game = room.game;
 
-    if (!game) {
-        return;
-    }
+    const currentIndex =
+        game.currentPlayer;
 
     const player =
-        room.players[game.trumpChooser];
+        room.players[currentIndex];
 
-    if (!player?.bot) {
+    if (!player || !player.bot) {
         return;
     }
 
-    const suit =
-        chooseBotTrump(
-            game,
-            player.seat
+    setTimeout(() => {
+
+        if (!room.game) {
+            return;
+        }
+
+        const currentPlayer =
+            room.players[
+                room.game.currentPlayer
+            ];
+
+        if (
+            !currentPlayer ||
+            !currentPlayer.bot
+        ) {
+            return;
+        }
+
+        /*
+           Bot wybiera atu.
+        */
+
+        if (
+            room.game.phase ===
+            "trump"
+        ) {
+
+            const suit =
+                chooseBotTrump(
+                    room.game,
+                    room.game.currentPlayer
+                );
+
+            chooseTrump(
+                room.game,
+                suit
+            );
+
+            dealRemainingCards(
+                room.game
+            );
+
+            sendGameState(room);
+
+            processBotTurn(room);
+
+            return;
+        }
+
+        /*
+           Bot wybiera kartę.
+        */
+
+        const card =
+            chooseBotCard(
+                room.game,
+                room.game.currentPlayer
+            );
+
+        if (!card) {
+            return;
+        }
+
+        removeCardFromBot(
+            room.game,
+            room.game.currentPlayer,
+            card
         );
 
-    chooseTrump(
-        game,
-        player.seat,
-        suit
-    );
-
-    dealRemainingCards(game);
-
-    sendGameState(room);
-}
-
-function playBot(room) {
-    const game = room.game;
-
-    if (!game) {
-        return;
-    }
-
-    const player =
-        room.players[game.currentPlayer];
-
-    if (!player?.bot) {
-        return;
-    }
-
-    const cardId =
-        chooseBotCard(
-            game,
-            player.seat
+        playCard(
+            room.game,
+            room.game.currentPlayer,
+            card
         );
 
-    if (!cardId) {
-        return;
-    }
+        sendGameState(room);
 
-    removeCardFromBot(
-        game,
-        player.seat,
-        cardId
-    );
+        /*
+           Jeżeli po zagraniu
+           nadal gra bot — kolejny ruch.
+        */
 
-    playCard(
-        game,
-        player.seat,
-        cardId
-    );
+        processBotTurn(room);
 
-    sendGameState(room);
-}
-
-function processBots(room) {
-    if (!room.game) {
-        return;
-    }
-
-    const game = room.game;
-
-    if (
-        game.trump === null &&
-        room.players[
-            game.trumpChooser
-        ]?.bot
-    ) {
-        setTimeout(() => {
-            chooseTrumpForBot(room);
-            processBots(room);
-        }, 700);
-
-        return;
-    }
-
-    if (
-        game.finished ||
-        game.currentPlayer === null
-    ) {
-        return;
-    }
-
-    const player =
-        room.players[
-            game.currentPlayer
-        ];
-
-    if (player?.bot) {
-        setTimeout(() => {
-            playBot(room);
-            processBots(room);
-        }, 700);
-    }
+    }, 700);
 }
 
 
@@ -371,70 +436,95 @@ io.on("connection", socket => {
     );
 
 
-    /* =====================
+    /* =========================
        DOŁĄCZENIE DO POKOJU
-    ====================== */
+    ========================= */
 
     socket.on(
         "joinRoom",
         ({ nickname, room: roomName }) => {
 
+            if (
+                typeof nickname !== "string" ||
+                typeof roomName !== "string"
+            ) {
+                return;
+            }
+
             nickname =
-                String(nickname || "")
-                    .trim()
-                    .slice(0, 20);
+                nickname.trim();
 
             roomName =
-                String(roomName || "")
-                    .trim()
-                    .slice(0, 20);
+                roomName.trim();
 
             if (!nickname || !roomName) {
+                return;
+            }
+
+            if (!rooms.has(roomName)) {
+
+                rooms.set(
+                    roomName,
+                    {
+                        name: roomName,
+                        players: [],
+                        game: null
+                    }
+                );
+            }
+
+            const room =
+                rooms.get(roomName);
+
+            /*
+               Nie pozwalamy dołączyć do
+               rozpoczętej gry.
+            */
+
+            if (room.game) {
+
                 socket.emit(
-                    "joinError",
-                    "Podaj pseudonim i pokój."
+                    "errorMessage",
+                    "Gra w tym pokoju już się rozpoczęła."
                 );
 
                 return;
             }
 
-            let room =
-                getRoom(roomName);
+            /*
+               Maksymalnie 4 ludzi.
+            */
 
-            if (!room) {
-                room =
-                    createRoom(roomName);
-            }
+            const humans =
+                getHumanPlayers(room);
 
-            if (room.started) {
+            if (humans.length >= 4) {
+
                 socket.emit(
-                    "joinError",
-                    "Gra już się rozpoczęła."
+                    "errorMessage",
+                    "Ten pokój jest już pełny."
                 );
 
                 return;
             }
 
-            if (room.players.length >= 4) {
-                socket.emit(
-                    "joinError",
-                    "Pokój jest pełny."
-                );
+            /*
+               Sprawdzamy duplikat nicku.
+            */
 
-                return;
-            }
-
-            const alreadyExists =
+            const duplicate =
                 room.players.some(
                     player =>
+                        !player.bot &&
                         player.name.toLowerCase() ===
                         nickname.toLowerCase()
                 );
 
-            if (alreadyExists) {
+            if (duplicate) {
+
                 socket.emit(
-                    "joinError",
-                    "Ten pseudonim jest już zajęty."
+                    "errorMessage",
+                    "Taki pseudonim jest już zajęty w tym pokoju."
                 );
 
                 return;
@@ -442,10 +532,10 @@ io.on("connection", socket => {
 
             const player = {
                 id: socket.id,
+                socketId: socket.id,
                 name: nickname,
-                seat: room.players.length,
-                team: null,
-                bot: false
+                bot: false,
+                team: null
             };
 
             room.players.push(player);
@@ -455,15 +545,13 @@ io.on("connection", socket => {
             socket.data.room =
                 roomName;
 
-            socket.data.seat =
-                player.seat;
+            socket.data.playerId =
+                socket.id;
 
             socket.emit(
                 "joinedRoom",
                 {
-                    room: roomName,
-                    seat: player.seat,
-                    team: null
+                    room: roomName
                 }
             );
 
@@ -472,9 +560,9 @@ io.on("connection", socket => {
     );
 
 
-    /* =====================
+    /* =========================
        WYBÓR DRUŻYNY
-    ====================== */
+    ========================= */
 
     socket.on(
         "chooseTeam",
@@ -483,19 +571,14 @@ io.on("connection", socket => {
             const roomName =
                 socket.data.room;
 
-            const room =
-                getRoom(roomName);
-
-            if (!room) {
+            if (!roomName) {
                 return;
             }
 
-            const player =
-                room.players.find(
-                    p => p.id === socket.id
-                );
+            const room =
+                rooms.get(roomName);
 
-            if (!player) {
+            if (!room || room.game) {
                 return;
             }
 
@@ -506,23 +589,38 @@ io.on("connection", socket => {
                 return;
             }
 
-            /*
-             * Maksymalnie dwóch
-             * graczy w drużynie.
-             */
+            const player =
+                room.players.find(
+                    p =>
+                        p.socketId ===
+                        socket.id
+                );
 
-            const alreadyInTeam =
+            if (!player) {
+                return;
+            }
+
+            const teamCount =
                 getTeamPlayers(
                     room,
                     team
                 ).filter(
-                    p => p.id !== player.id
+                    p => !p.bot
                 ).length;
 
-            if (alreadyInTeam >= 2) {
+            /*
+               Maksymalnie 2 ludzi
+               w jednej drużynie.
+            */
+
+            if (
+                player.team !== team &&
+                teamCount >= 2
+            ) {
+
                 socket.emit(
-                    "gameError",
-                    "Ta drużyna jest już pełna."
+                    "errorMessage",
+                    "Ta drużyna ma już dwóch graczy."
                 );
 
                 return;
@@ -531,115 +629,230 @@ io.on("connection", socket => {
             player.team = team;
 
             sendLobby(room);
+
+            /*
+               Jeżeli mamy 4 ludzi
+               i każdy wybrał drużynę,
+               startujemy bez botów.
+            */
+
+            const humans =
+                getHumanPlayers(room);
+
+            const allHaveTeams =
+                humans.length === 4 &&
+                humans.every(
+                    p =>
+                        typeof p.team ===
+                        "number"
+                );
+
+            if (allHaveTeams) {
+
+                const team0 =
+                    getTeamPlayers(
+                        room,
+                        0
+                    ).length;
+
+                const team1 =
+                    getTeamPlayers(
+                        room,
+                        1
+                    ).length;
+
+                if (
+                    team0 === 2 &&
+                    team1 === 2
+                ) {
+                    startGame(room);
+                }
+            }
         }
     );
 
 
-    /* =====================
+    /* =========================
+       GRAJ Z BOTAMI
+    ========================= */
+
+    socket.on(
+        "startWithBots",
+        () => {
+
+            const roomName =
+                socket.data.room;
+
+            if (!roomName) {
+                return;
+            }
+
+            const room =
+                rooms.get(roomName);
+
+            if (!room || room.game) {
+                return;
+            }
+
+            const player =
+                room.players.find(
+                    p =>
+                        p.socketId ===
+                        socket.id
+                );
+
+            if (!player) {
+                return;
+            }
+
+            /*
+               Gracz musi najpierw wybrać
+               swoją drużynę.
+            */
+
+            if (
+                typeof player.team !==
+                "number"
+            ) {
+
+                socket.emit(
+                    "errorMessage",
+                    "Najpierw wybierz drużynę."
+                );
+
+                return;
+            }
+
+            const started =
+                startGame(room);
+
+            if (!started) {
+
+                socket.emit(
+                    "errorMessage",
+                    "Nie można rozpocząć gry. Sprawdź wybór drużyn."
+                );
+
+                sendLobby(room);
+            }
+        }
+    );
+
+
+    /* =========================
        WYBÓR ATU
-    ====================== */
+    ========================= */
 
     socket.on(
         "chooseTrump",
         ({ suit }) => {
 
+            const roomName =
+                socket.data.room;
+
             const room =
-                getRoom(
-                    socket.data.room
-                );
+                rooms.get(roomName);
 
-            if (!room?.game) {
+            if (!room || !room.game) {
                 return;
             }
 
-            const player =
-                room.players.find(
-                    p => p.id === socket.id
-                );
+            const game =
+                room.game;
 
-            if (!player) {
+            if (
+                game.currentPlayer !==
+                room.players.findIndex(
+                    p =>
+                        p.socketId ===
+                        socket.id
+                )
+            ) {
                 return;
             }
 
-            try {
+            chooseTrump(
+                game,
+                suit
+            );
 
-                chooseTrump(
-                    room.game,
-                    player.seat,
-                    suit
-                );
+            dealRemainingCards(
+                game
+            );
 
-                dealRemainingCards(
-                    room.game
-                );
+            sendGameState(room);
 
-                sendGameState(room);
-
-                processBots(room);
-
-            } catch (error) {
-
-                socket.emit(
-                    "gameError",
-                    error.message
-                );
-            }
+            processBotTurn(room);
         }
     );
 
 
-    /* =====================
+    /* =========================
        ZAGRANIE KARTY
-    ====================== */
+    ========================= */
 
     socket.on(
         "playCard",
-        ({ cardId }) => {
+        ({ card }) => {
+
+            const roomName =
+                socket.data.room;
 
             const room =
-                getRoom(
-                    socket.data.room
-                );
+                rooms.get(roomName);
 
-            if (!room?.game) {
+            if (!room || !room.game) {
                 return;
             }
 
-            const player =
-                room.players.find(
-                    p => p.id === socket.id
+            const game =
+                room.game;
+
+            const playerIndex =
+                room.players.findIndex(
+                    p =>
+                        p.socketId ===
+                        socket.id
                 );
 
-            if (!player) {
+            if (
+                playerIndex < 0 ||
+                game.currentPlayer !==
+                playerIndex
+            ) {
                 return;
             }
 
-            try {
-
+            const result =
                 playCard(
-                    room.game,
-                    player.seat,
-                    cardId
+                    game,
+                    playerIndex,
+                    card
                 );
 
-                sendGameState(room);
-
-                processBots(room);
-
-            } catch (error) {
+            if (
+                result &&
+                result.error
+            ) {
 
                 socket.emit(
-                    "gameError",
-                    error.message
+                    "errorMessage",
+                    result.error
                 );
+
+                return;
             }
+
+            sendGameState(room);
+
+            processBotTurn(room);
         }
     );
 
 
-    /* =====================
-       WYJŚCIE
-    ====================== */
+    /* =========================
+       OPUSZCZENIE POKOJU
+    ========================= */
 
     socket.on(
         "leaveRoom",
@@ -650,9 +863,9 @@ io.on("connection", socket => {
     );
 
 
-    /* =====================
+    /* =========================
        ROZŁĄCZENIE
-    ====================== */
+    ========================= */
 
     socket.on(
         "disconnect",
@@ -670,7 +883,7 @@ io.on("connection", socket => {
 
 
 /* =========================
-   OPUSZCZANIE POKOJU
+   LEAVE ROOM
 ========================= */
 
 function leaveRoom(socket) {
@@ -683,34 +896,50 @@ function leaveRoom(socket) {
     }
 
     const room =
-        getRoom(roomName);
+        rooms.get(roomName);
 
     if (!room) {
         return;
     }
 
-    room.players =
-        room.players.filter(
+    const index =
+        room.players.findIndex(
             player =>
-                player.id !== socket.id
+                player.socketId ===
+                socket.id
         );
 
+    if (index !== -1) {
+
+        room.players.splice(
+            index,
+            1
+        );
+    }
+
+    socket.leave(roomName);
+
+    socket.data.room = null;
+
+    /*
+       Jeżeli pokój jest pusty,
+       usuwamy go.
+    */
+
     if (room.players.length === 0) {
+
         rooms.delete(roomName);
+
         return;
     }
 
     /*
-     * Przeliczamy miejsca.
-     */
+       Jeżeli gra jeszcze się
+       nie rozpoczęła, aktualizujemy lobby.
+    */
 
-    room.players.forEach(
-        (player, index) => {
-            player.seat = index;
-        }
-    );
+    if (!room.game) {
 
-    if (!room.started) {
         sendLobby(room);
     }
 }
@@ -723,6 +952,7 @@ function leaveRoom(socket) {
 server.listen(
     PORT,
     () => {
+
         console.log(
             `Sznaps działa na porcie ${PORT}`
         );
