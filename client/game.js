@@ -1,467 +1,491 @@
-const socket = io();
+const SUITS = ["♥", "♦", "♣", "♠"];
 
-let myPlayerId = null;
-let currentRoom = null;
-let currentPlayers = [];
+const SUIT_NAMES = {
+  "♥": "Czerwo",
+  "♦": "Dzwonek",
+  "♣": "Krzak",
+  "♠": "Wino"
+};
 
-const startScreen = document.getElementById("startScreen");
-const lobbyScreen = document.getElementById("lobbyScreen");
-const gameScreen = document.getElementById("gameScreen");
+const RANKS = ["A", "10", "K", "Q", "J", "9"];
 
-const nicknameInput = document.getElementById("nickname");
-const roomIdInput = document.getElementById("roomId");
+const CARD_VALUES = {
+  A: 11,
+  10: 10,
+  K: 4,
+  Q: 3,
+  J: 2,
+  9: 0
+};
 
-const joinButton = document.getElementById("joinButton");
-const leaveButton = document.getElementById("leaveButton");
+const RANK_POWER = {
+  A: 6,
+  10: 5,
+  K: 4,
+  Q: 3,
+  J: 2,
+  9: 1
+};
 
-const startError = document.getElementById("startError");
+function createDeck() {
+  const deck = [];
 
-const roomName = document.getElementById("roomName");
-const playersList = document.getElementById("playersList");
+  for (const suit of SUITS) {
+    for (const rank of RANKS) {
+      deck.push({
+        suit,
+        rank,
+        id: `${rank}${suit}`
+      });
+    }
+  }
 
-const myName = document.getElementById("myName");
-
-const playerTop = document.getElementById("playerTop");
-const playerLeft = document.getElementById("playerLeft");
-const playerRight = document.getElementById("playerRight");
-
-const scoreTeam1 = document.getElementById("scoreTeam1");
-const scoreTeam2 = document.getElementById("scoreTeam2");
-
-const trumpElement = document.getElementById("trump");
-const gameMessage = document.getElementById("gameMessage");
-
-const myHand = document.getElementById("myHand");
-const playedCards = document.getElementById("playedCards");
-
-
-/* =========================
-   POMOCNICZE
-========================= */
-
-function showScreen(screen) {
-    startScreen.classList.add("hidden");
-    lobbyScreen.classList.add("hidden");
-    gameScreen.classList.add("hidden");
-
-    screen.classList.remove("hidden");
+  return deck;
 }
 
-function showError(message) {
-    startError.textContent = message;
+function shuffle(deck) {
+  const copy = [...deck];
+
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+
+  return copy;
 }
 
-function clearError() {
-    startError.textContent = "";
+function createGame(players, firstChooser = 0) {
+  return {
+    players,
+
+    deck: [],
+
+    trump: null,
+
+    chooser: firstChooser,
+
+    currentPlayer: firstChooser,
+
+    phase: "dealing",
+
+    hands: [[], [], [], []],
+
+    trick: [],
+
+    trickWinner: null,
+
+    teamPoints: [0, 0],
+
+    melds: [0, 0],
+
+    lastMessage: "Rozdawanie kart..."
+  };
 }
 
+/**
+ * Pierwsze rozdanie:
+ * każdy dostaje 3 karty.
+ */
+function dealInitialCards(game) {
+  game.deck = shuffle(createDeck());
 
-/* =========================
-   DOŁĄCZANIE
-========================= */
+  game.hands = [[], [], [], []];
 
-joinButton.addEventListener("click", joinGame);
-
-nicknameInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-        joinGame();
+  for (let round = 0; round < 3; round++) {
+    for (let player = 0; player < 4; player++) {
+      game.hands[player].push(game.deck.pop());
     }
-});
+  }
 
-roomIdInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-        joinGame();
-    }
-});
+  game.phase = "trump";
 
-function joinGame() {
-    clearError();
+  game.currentPlayer = game.chooser;
 
-    const nickname = nicknameInput.value.trim();
-    const roomId = roomIdInput.value.trim();
+  game.lastMessage = `Gracz ${game.chooser + 1} wybiera atu.`;
 
-    if (!nickname) {
-        showError("Wpisz swój pseudonim.");
-        nicknameInput.focus();
-        return;
-    }
-
-    if (!roomId) {
-        showError("Wpisz nazwę pokoju.");
-        roomIdInput.focus();
-        return;
-    }
-
-    if (nickname.length < 2) {
-        showError("Nick musi mieć przynajmniej 2 znaki.");
-        return;
-    }
-
-    currentRoom = roomId;
-
-    socket.emit("joinRoom", {
-        roomId,
-        nickname
-    });
+  return game;
 }
 
+/**
+ * Po wybraniu atu:
+ * każdy dostaje kolejne 3 karty.
+ */
+function dealRemainingCards(game) {
+  for (let round = 0; round < 3; round++) {
+    for (let player = 0; player < 4; player++) {
+      const card = game.deck.pop();
 
-/* =========================
-   ODEJŚCIE Z POKOJU
-========================= */
-
-leaveButton.addEventListener("click", () => {
-    socket.emit("leaveRoom");
-
-    currentRoom = null;
-    currentPlayers = [];
-    myPlayerId = null;
-
-    showScreen(startScreen);
-});
-
-
-/* =========================
-   SOCKET
-========================= */
-
-socket.on("connect", () => {
-    myPlayerId = socket.id;
-
-    console.log("Połączono z serwerem:", socket.id);
-});
-
-socket.on("disconnect", () => {
-    gameMessage.textContent = "Połączenie z serwerem zostało utracone.";
-});
-
-socket.on("errorMessage", (message) => {
-    showError(message);
-});
-
-socket.on("roomFull", () => {
-    showError("Ten pokój jest już pełny.");
-});
-
-
-/* =========================
-   AKTUALIZACJA POKOJU
-========================= */
-
-socket.on("roomUpdate", (data) => {
-
-    currentRoom = data.roomId;
-    currentPlayers = data.players || [];
-
-    roomName.textContent = currentRoom;
-
-    renderPlayers();
-
-    const me = currentPlayers.find(
-        player => player.id === myPlayerId
-    );
-
-    if (me) {
-        myName.textContent = me.nickname;
+      if (card) {
+        game.hands[player].push(card);
+      }
     }
+  }
 
-    showScreen(lobbyScreen);
-});
+  game.phase = "playing";
 
+  game.currentPlayer = game.chooser;
 
-/* =========================
-   LISTA GRACZY
-========================= */
+  game.lastMessage = `Atu: ${SUIT_NAMES[game.trump]} (${game.trump}). ${game.chooser + 1} wychodzi.`;
 
-function renderPlayers() {
-
-    playersList.innerHTML = "";
-
-    for (let seat = 0; seat < 4; seat++) {
-
-        const player = currentPlayers.find(
-            p => p.seat === seat
-        );
-
-        const slot = document.createElement("div");
-
-        slot.className = "player-slot";
-
-        if (player) {
-
-            const teamName =
-                player.team === 0
-                    ? "Drużyna 1"
-                    : "Drużyna 2";
-
-            slot.innerHTML = `
-                <span class="seat">
-                    ${seat + 1}
-                </span>
-
-                <strong>
-                    ${escapeHtml(player.nickname)}
-                </strong>
-
-                <small>
-                    — ${teamName}
-                </small>
-            `;
-
-        } else {
-
-            slot.classList.add("empty");
-
-            slot.innerHTML = `
-                <span class="seat">
-                    ${seat + 1}
-                </span>
-
-                Wolne miejsce
-            `;
-        }
-
-        playersList.appendChild(slot);
-    }
+  return game;
 }
 
-
-/* =========================
-   EKRAN GRY
-========================= */
-
-function renderGamePlayers(players) {
-
-    const me = players.find(
-        player => player.id === myPlayerId
-    );
-
-    if (!me) {
-        return;
-    }
-
-    myName.textContent = me.nickname;
-
-    /*
-        Miejsca:
-
-        0 = dół / my
-        1 = lewo
-        2 = góra
-        3 = prawo
-    */
-
-    const positions = {
-        top: players.find(p => p.seat === 2),
-        left: players.find(p => p.seat === 1),
-        right: players.find(p => p.seat === 3)
+/**
+ * Obierający musi wybrać kolor.
+ */
+function chooseTrump(game, playerIndex, suit) {
+  if (game.phase !== "trump") {
+    return {
+      ok: false,
+      error: "Nie trwa wybieranie atu."
     };
+  }
 
-    playerTop.textContent =
-        positions.top
-            ? positions.top.nickname
-            : "---";
+  if (playerIndex !== game.chooser) {
+    return {
+      ok: false,
+      error: "Nie jest Twoja kolej na wybór atu."
+    };
+  }
 
-    playerLeft.textContent =
-        positions.left
-            ? positions.left.nickname
-            : "---";
+  if (!SUITS.includes(suit)) {
+    return {
+      ok: false,
+      error: "Nieprawidłowy kolor atu."
+    };
+  }
 
-    playerRight.textContent =
-        positions.right
-            ? positions.right.nickname
-            : "---";
+  game.trump = suit;
+
+  dealRemainingCards(game);
+
+  return {
+    ok: true
+  };
 }
 
+/**
+ * Zwraca aktualnie wygrywającą kartę w lewie.
+ */
+function getWinningCard(trick, trump) {
+  if (!trick.length) {
+    return null;
+  }
 
-/* =========================
-   KARTY
-========================= */
+  const leadSuit = trick[0].card.suit;
 
-function renderHand(hand) {
+  let winning = trick[0];
 
-    myHand.innerHTML = "";
+  for (let i = 1; i < trick.length; i++) {
+    const candidate = trick[i];
 
-    if (!hand) {
-        return;
+    if (beatsCard(candidate.card, winning.card, leadSuit, trump)) {
+      winning = candidate;
     }
+  }
 
-    hand.forEach((card, index) => {
-
-        const cardElement =
-            document.createElement("div");
-
-        cardElement.className = "card";
-
-        if (card.suit === "♥" || card.suit === "♦") {
-            cardElement.classList.add("red");
-        }
-
-        cardElement.innerHTML = `
-            <div class="rank">
-                ${card.rank}
-            </div>
-
-            <div class="suit">
-                ${card.suit}
-            </div>
-        `;
-
-        cardElement.addEventListener(
-            "click",
-            () => {
-
-                if (!currentRoom) {
-                    return;
-                }
-
-                socket.emit("playCard", {
-                    roomId: currentRoom,
-                    cardIndex: index
-                });
-            }
-        );
-
-        myHand.appendChild(cardElement);
-    });
+  return winning;
 }
 
+/**
+ * Sprawdza, czy karta A bije kartę B.
+ */
+function beatsCard(a, b, leadSuit, trump) {
+  const aTrump = a.suit === trump;
+  const bTrump = b.suit === trump;
 
-/* =========================
-   KARTY NA STOLE
-========================= */
+  if (aTrump && !bTrump) {
+    return true;
+  }
 
-function renderPlayedCards(trick) {
+  if (!aTrump && bTrump) {
+    return false;
+  }
 
-    playedCards.innerHTML = "";
+  if (a.suit !== b.suit) {
+    return false;
+  }
 
-    if (!trick) {
-        return;
-    }
-
-    trick.forEach((played, index) => {
-
-        const card = played.card;
-
-        const cardElement =
-            document.createElement("div");
-
-        cardElement.className = "card";
-
-        if (card.suit === "♥" || card.suit === "♦") {
-            cardElement.classList.add("red");
-        }
-
-        cardElement.style.position = "absolute";
-
-        const positions = [
-            {
-                left: "50%",
-                top: "0",
-                transform: "translateX(-50%)"
-            },
-            {
-                left: "0",
-                top: "50%",
-                transform: "translateY(-50%)"
-            },
-            {
-                right: "0",
-                top: "50%",
-                transform: "translateY(-50%)"
-            },
-            {
-                left: "50%",
-                bottom: "0",
-                transform: "translateX(-50%)"
-            }
-        ];
-
-        const position =
-            positions[index] || positions[0];
-
-        Object.assign(
-            cardElement.style,
-            position
-        );
-
-        cardElement.innerHTML = `
-            <div class="rank">
-                ${card.rank}
-            </div>
-
-            <div class="suit">
-                ${card.suit}
-            </div>
-        `;
-
-        playedCards.appendChild(cardElement);
-    });
+  return RANK_POWER[a.rank] > RANK_POWER[b.rank];
 }
 
+/**
+ * Czy karta może zostać legalnie zagrana?
+ *
+ * Zasady:
+ *
+ * 1. Masz kolor wyjścia:
+ *    - musisz dołożyć do koloru.
+ *    - jeśli możesz przebić aktualnie wygrywającą kartę,
+ *      musisz to zrobić.
+ *
+ * 2. Nie masz koloru:
+ *    - możesz zagrać dowolną kartę.
+ *
+ * 3. Jeśli aktualnie wygrywa atu:
+ *    - jeżeli masz wyższe atu, musisz nim przebić.
+ *    - jeżeli nie masz wyższego atu, możesz zagrać dowolną kartę
+ *      (w tym niższe atu).
+ */
+function getLegalCards(game, playerIndex) {
+  const hand = game.hands[playerIndex];
 
-/* =========================
-   STAN GRY
-========================= */
+  if (!hand || !hand.length) {
+    return [];
+  }
 
-socket.on("gameState", (state) => {
+  if (!game.trick.length) {
+    return [...hand];
+  }
 
-    showScreen(gameScreen);
+  const leadSuit = game.trick[0].card.suit;
 
-    if (state.players) {
-        renderGamePlayers(state.players);
+  const cardsOfLeadSuit = hand.filter(
+    card => card.suit === leadSuit
+  );
+
+  const winning = getWinningCard(game.trick, game.trump);
+
+  // Gracz ma kolor wyjścia.
+  if (cardsOfLeadSuit.length > 0) {
+    const cardsThatBeat = cardsOfLeadSuit.filter(card =>
+      beatsCard(
+        card,
+        winning.card,
+        leadSuit,
+        game.trump
+      )
+    );
+
+    // Jeżeli może przebić — musi przebić.
+    if (cardsThatBeat.length > 0) {
+      return cardsThatBeat;
     }
 
-    if (state.gamePoints) {
+    // Nie może przebić — dowolna karta koloru.
+    return cardsOfLeadSuit;
+  }
 
-        scoreTeam1.textContent =
-            state.gamePoints[0] ?? 0;
-
-        scoreTeam2.textContent =
-            state.gamePoints[1] ?? 0;
-    }
-
-    if (state.trump) {
-
-        trumpElement.textContent =
-            `${state.trump} ${state.trumpName || ""}`;
-
-    } else {
-
-        trumpElement.textContent = "—";
-    }
-
-    renderPlayedCards(state.trick);
-
-    const me = state.players
-        ? state.players.find(
-            player => player.id === myPlayerId
-        )
-        : null;
-
-    if (me) {
-        renderHand(me.hand);
-    }
-
-    if (state.currentPlayer === myPlayerId) {
-        gameMessage.textContent =
-            "Twoja kolej.";
-    } else {
-        gameMessage.textContent =
-            "Czekaj na ruch...";
-    }
-});
-
-
-/* =========================
-   BEZPIECZNY TEKST
-========================= */
-
-function escapeHtml(text) {
-
-    const div = document.createElement("div");
-
-    div.textContent = text;
-
-    return div.innerHTML;
+  // Nie ma koloru — może rzucić cokolwiek.
+  return [...hand];
 }
+
+function isLegalCard(game, playerIndex, cardId) {
+  const legalCards = getLegalCards(game, playerIndex);
+
+  return legalCards.some(card => card.id === cardId);
+}
+
+/**
+ * Zagranie karty.
+ */
+function playCard(game, playerIndex, cardId) {
+  if (game.phase !== "playing") {
+    return {
+      ok: false,
+      error: "Gra nie jest obecnie w fazie rozgrywania."
+    };
+  }
+
+  if (playerIndex !== game.currentPlayer) {
+    return {
+      ok: false,
+      error: "To nie jest Twoja kolej."
+    };
+  }
+
+  const hand = game.hands[playerIndex];
+
+  const cardIndex = hand.findIndex(
+    card => card.id === cardId
+  );
+
+  if (cardIndex === -1) {
+    return {
+      ok: false,
+      error: "Nie masz tej karty."
+    };
+  }
+
+  if (!isLegalCard(game, playerIndex, cardId)) {
+    return {
+      ok: false,
+      error: "Nie możesz zagrać tej karty."
+    };
+  }
+
+  const card = hand.splice(cardIndex, 1)[0];
+
+  game.trick.push({
+    player: playerIndex,
+    card
+  });
+
+  // Meldunek przy wyjściu Damą.
+  // Na razie tylko rejestrujemy możliwość.
+  // Faktyczne naliczanie punktów zostawiamy
+  // do modułu punktacji.
+  if (
+    game.trick.length === 1 &&
+    card.rank === "Q"
+  ) {
+    const hasKing = hand.some(
+      c => c.suit === card.suit && c.rank === "K"
+    );
+
+    if (hasKing) {
+      const meldPoints =
+        card.suit === game.trump ? 40 : 20;
+
+      const team = playerIndex % 2;
+
+      game.melds[team] += meldPoints;
+      game.teamPoints[team] += meldPoints;
+
+      game.lastMessage =
+        `${playerIndex + 1} melduje ${meldPoints} pkt!`;
+    }
+  }
+
+  // Kolejny gracz.
+  game.currentPlayer =
+    (playerIndex + 1) % 4;
+
+  // Lewa zakończona.
+  if (game.trick.length === 4) {
+    finishTrick(game);
+  }
+
+  return {
+    ok: true
+  };
+}
+
+/**
+ * Kończy lewę.
+ */
+function finishTrick(game) {
+  const winning = getWinningCard(
+    game.trick,
+    game.trump
+  );
+
+  if (!winning) {
+    return;
+  }
+
+  const winner = winning.player;
+
+  const trickPoints = calculateTrickPoints(
+    game.trick
+  );
+
+  const team = winner % 2;
+
+  game.teamPoints[team] += trickPoints;
+
+  game.trickWinner = winner;
+
+  game.lastMessage =
+    `Lewę bierze gracz ${winner + 1} (+${trickPoints} pkt).`;
+
+  // 66+ = natychmiastowy koniec.
+  if (game.teamPoints[team] >= 66) {
+    game.phase = "finished";
+
+    game.lastMessage =
+      `Koniec! Drużyna ${team + 1} zdobyła ${game.teamPoints[team]} pkt.`;
+
+    return;
+  }
+
+  game.trick = [];
+
+  // Zwycięzca poprzedniej lewy wychodzi.
+  game.currentPlayer = winner;
+}
+
+function calculateTrickPoints(trick) {
+  return trick.reduce(
+    (sum, played) =>
+      sum + CARD_VALUES[played.card.rank],
+    0
+  );
+}
+
+function check66(game) {
+  return (
+    game.teamPoints[0] >= 66 ||
+    game.teamPoints[1] >= 66
+  );
+}
+
+/**
+ * Stan wysyłany do klienta.
+ *
+ * Ukrywamy karty przeciwników.
+ */
+function getGameState(game, viewerIndex = null) {
+  return {
+    phase: game.phase,
+
+    trump: game.trump,
+
+    chooser: game.chooser,
+
+    currentPlayer: game.currentPlayer,
+
+    teamPoints: [...game.teamPoints],
+
+    melds: [...game.melds],
+
+    trick: game.trick.map(item => ({
+      player: item.player,
+      card: item.card
+    })),
+
+    hands: game.hands.map((hand, index) => {
+      if (index === viewerIndex) {
+        return [...hand];
+      }
+
+      return hand.map(() => ({
+        hidden: true
+      }));
+    }),
+
+    handCount: game.hands.map(
+      hand => hand.length
+    ),
+
+    lastMessage: game.lastMessage
+  };
+}
+
+module.exports = {
+  SUITS,
+  SUIT_NAMES,
+  RANKS,
+  CARD_VALUES,
+  RANK_POWER,
+
+  createDeck,
+  shuffle,
+  createGame,
+
+  dealInitialCards,
+  dealRemainingCards,
+
+  chooseTrump,
+
+  getLegalCards,
+  isLegalCard,
+  playCard,
+
+  getWinningCard,
+  calculateTrickPoints,
+  check66,
+
+  getGameState
+};
