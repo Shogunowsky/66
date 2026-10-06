@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Sznaps</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div id="app">
+
+        <!-- EKRAN STARTOWY -->
+        <section id="startScreen" class="screen">
+
+            <div class="mine-logo">
+                <div class="lamp">⛏️</div>
+                <h1>SZNAPS</h1>
+                <p>Gra karciana spod ziemi</p>
+            </div>
+
+            <div class="panel">
+
+                <label for="nickname">
+                    Twój pseudonim
+                </label>
+
+                <input
+                    id="nickname"
+                    type="text"
+                    maxlength="20"
+                    placeholder="Wpisz nick..."
+                    autocomplete="off"
+                >
+
+                <label for="roomId">
+                    Pokój
+                </label>
+
+                <input
+                    id="roomId"
+                    type="text"
+                    maxlength="20"
+                    placeholder="np. kopalnia123"
+                    autocomplete="off"
+                >
+
+                <button id="joinButton">
+                    WEJDŹ DO GRY
+                </button>
+
+                <p id="startError" class="error"></p>
+
+            </div>
+
+        </section>
+
+
+        <!-- EKRAN POKOJU -->
+        <section id="lobbyScreen" class="screen hidden">
+
+            <div class="lobby-panel">
+
+                <h2>KOPALNIA</h2>
+
+                <p>
+                    Pokój:
+                    <strong id="roomName">---</strong>
+                </p>
+
+                <div id="playersList" class="players-list">
+                    <!-- gracze pojawią się tutaj -->
+                </div>
+
+                <div class="waiting-message">
+                    Oczekiwanie na rozpoczęcie gry...
+                </div>
+
+                <button id="leaveButton">
+                    OPUŚĆ POKÓJ
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <!-- EKRAN GRY -->
+        <section id="gameScreen" class="screen hidden">
+
+            <div class="game-table">
+
+                <div class="table-header">
+                    <div class="game-title">
+                        SZNAPS
+                    </div>
+
+                    <div class="score">
+                        <span>DRUŻYNA 1</span>
+                        <strong id="scoreTeam1">0</strong>
+
+                        <span>:</span>
+
+                        <strong id="scoreTeam2">0</strong>
+                        <span>DRUŻYNA 2</span>
+                    </div>
+                </div>
+
+
+                <!-- GRACZ GÓRA -->
+                <div class="player player-top">
+                    <div class="player-name" id="playerTop">
+                        ---
+                    </div>
+                </div>
+
+
+                <!-- GRACZ LEWO -->
+                <div class="player player-left">
+                    <div class="player-name" id="playerLeft">
+                        ---
+                    </div>
+                </div>
+
+
+                <!-- GRACZ PRAWO -->
+                <div class="player player-right">
+                    <div class="player-name" id="playerRight">
+                        ---
+                    </div>
+                </div>
+
+
+                <!-- ŚRODEK STOŁU -->
+                <div class="table-center">
+
+                    <div class="trump-display">
+                        <span>ATU</span>
+                        <strong id="trump">
+                            —
+                        </strong>
+                    </div>
+
+                    <div id="playedCards" class="played-cards">
+                        <!-- karty z lewy -->
+                    </div>
+
+                </div>
+
+
+                <!-- NASZA RĘKA -->
+                <div class="my-player">
+
+                    <div class="player-name">
+                        <span id="myName">---</span>
+                    </div>
+
+                    <div id="myHand" class="hand">
+                        <!-- nasze karty -->
+                    </div>
+
+                </div>
+
+
+                <!-- INFORMACJE -->
+                <div class="game-info">
+                    <span id="gameMessage">
+                        Oczekiwanie...
+                    </span>
+                </div>
+
+            </div>
+
+        </section>
+
+    </div>
+
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="game.js"></script>
+
+</body>
+</html>
