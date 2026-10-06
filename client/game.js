@@ -1,27 +1,18 @@
 const socket = io();
 
-let mySeat = null;
-let currentGameState = null;
-
 const startScreen = document.getElementById("startScreen");
 const lobbyScreen = document.getElementById("lobbyScreen");
 const gameScreen = document.getElementById("gameScreen");
 
 const nicknameInput = document.getElementById("nickname");
 const roomInput = document.getElementById("room");
-
 const joinButton = document.getElementById("joinButton");
-const leaveButton = document.getElementById("leaveButton");
 
 const lobbyRoom = document.getElementById("lobbyRoom");
 const lobbyPlayers = document.getElementById("lobbyPlayers");
+const leaveButton = document.getElementById("leaveButton");
 
-const myCards = document.getElementById("myCards");
-const playedCards = document.getElementById("playedCards");
-
-const gameMessage = document.getElementById("gameMessage");
 const trumpDisplay = document.getElementById("trumpDisplay");
-
 const scoreTeam1 = document.getElementById("scoreTeam1");
 const scoreTeam2 = document.getElementById("scoreTeam2");
 
@@ -29,503 +20,330 @@ const topPlayer = document.getElementById("topPlayer");
 const leftPlayer = document.getElementById("leftPlayer");
 const rightPlayer = document.getElementById("rightPlayer");
 
+const gameMessage = document.getElementById("gameMessage");
+const playedCards = document.getElementById("playedCards");
+const myCards = document.getElementById("myCards");
 
-// =========================
-// WYBÓR ATU
-// =========================
+let currentState = null;
+let mySeat = null;
 
-const trumpButtons = document.createElement("div");
+function showScreen(screen) {
+    startScreen.style.display = "none";
+    lobbyScreen.style.display = "none";
+    gameScreen.style.display = "none";
 
-trumpButtons.className = "trump-buttons";
+    screen.style.display = "block";
+}
 
-trumpButtons.innerHTML = `
-  <button type="button" data-suit="♥">♥ Czerwo</button>
-  <button type="button" data-suit="♦">♦ Dzwonek</button>
-  <button type="button" data-suit="♣">♣ Krzak</button>
-  <button type="button" data-suit="♠">♠ Wino</button>
-`;
+function joinGame() {
+    const nickname = nicknameInput.value.trim();
+    const room = roomInput.value.trim();
 
-document.body.appendChild(trumpButtons);
-
-trumpButtons.style.display = "none";
-
-trumpButtons
-  .querySelectorAll("button")
-  .forEach(button => {
-    button.addEventListener("click", () => {
-      if (!currentGameState) {
+    if (!nickname) {
+        alert("Podaj pseudonim.");
         return;
-      }
+    }
 
-      if (currentGameState.phase !== "trump") {
+    if (!room) {
+        alert("Podaj nazwę pokoju.");
         return;
-      }
+    }
 
-      if (currentGameState.chooser !== mySeat) {
-        return;
-      }
-
-      const suit = button.dataset.suit;
-
-      socket.emit("chooseTrump", {
-        suit
-      });
+    socket.emit("joinRoom", {
+        nickname,
+        room
     });
-  });
-
-
-// =========================
-// WEJŚCIE DO POKOJU
-// =========================
+}
 
 joinButton.addEventListener("click", joinGame);
 
-nicknameInput.addEventListener("keydown", event => {
-  if (event.key === "Enter") {
-    joinGame();
-  }
-});
-
 roomInput.addEventListener("keydown", event => {
-  if (event.key === "Enter") {
-    joinGame();
-  }
+    if (event.key === "Enter") {
+        joinGame();
+    }
 });
 
-function joinGame() {
-  const nickname =
-    nicknameInput.value.trim() || "Gracz";
-
-  const room =
-    roomInput.value.trim().toUpperCase() || "TEST";
-
-  joinButton.disabled = true;
-  joinButton.textContent = "ŁĄCZENIE...";
-
-  socket.emit("joinRoom", {
-    nickname,
-    room
-  });
-}
-
-
-// =========================
-// WYJŚCIE
-// =========================
+nicknameInput.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+        joinGame();
+    }
+});
 
 leaveButton.addEventListener("click", () => {
-  socket.emit("leaveRoom");
-
-  startScreen.style.display = "flex";
-  lobbyScreen.style.display = "none";
-  gameScreen.style.display = "none";
-
-  joinButton.disabled = false;
-  joinButton.textContent = "WEJDŹ DO GRY";
+    socket.emit("leaveRoom");
+    showScreen(startScreen);
 });
 
-
-// =========================
-// SOCKET.IO
-// =========================
-
 socket.on("connect", () => {
-  console.log("Połączono z serwerem:", socket.id);
-
-  joinButton.disabled = false;
-  joinButton.textContent = "WEJDŹ DO GRY";
+    console.log("Połączono z serwerem.");
 });
 
 socket.on("connect_error", error => {
-  console.error(
-    "Błąd połączenia z serwerem:",
-    error
-  );
-
-  joinButton.disabled = false;
-  joinButton.textContent = "WEJDŹ DO GRY";
-
-  alert(
-    "Nie udało się połączyć z serwerem."
-  );
+    console.error("Błąd połączenia:", error);
 });
 
 socket.on("joinedRoom", data => {
-  console.log("Dołączono do pokoju:", data);
+    mySeat = data.seat;
 
-  mySeat = data.seat;
+    lobbyRoom.textContent = data.room;
 
-  startScreen.style.display = "none";
-  lobbyScreen.style.display = "flex";
-  gameScreen.style.display = "none";
-
-  lobbyRoom.textContent =
-    `Pokój: ${data.room}`;
+    showScreen(lobbyScreen);
 });
 
-socket.on("joinError", data => {
-  console.error(
-    "Nie udało się wejść:",
-    data
-  );
-
-  joinButton.disabled = false;
-  joinButton.textContent = "WEJDŹ DO GRY";
-
-  alert(
-    data?.message ||
-    "Nie udało się wejść do pokoju."
-  );
+socket.on("joinError", message => {
+    alert(message);
 });
 
-socket.on("lobbyState", data => {
-  lobbyRoom.textContent =
-    `Pokój: ${data.room}`;
+socket.on("lobbyState", state => {
+    lobbyRoom.textContent = state.room;
 
-  lobbyPlayers.innerHTML = "";
+    lobbyPlayers.innerHTML = "";
 
-  if (!data.players) {
-    return;
-  }
+    state.players.forEach(player => {
+        const row = document.createElement("div");
 
-  data.players.forEach(player => {
-    const div =
-      document.createElement("div");
+        row.className = "lobby-player";
 
-    div.className =
-      "lobby-player";
+        row.textContent =
+            `${player.name}${player.bot ? " 🤖" : ""}`;
 
-    div.textContent =
-      `${player.seat + 1}. ${player.name}${player.bot ? " 🤖" : ""}`;
+        lobbyPlayers.appendChild(row);
+    });
 
-    lobbyPlayers.appendChild(div);
-  });
+    showScreen(lobbyScreen);
 });
 
-socket.on("gameError", data => {
-  alert(
-    data?.message ||
-    "Nie można wykonać tej akcji."
-  );
+socket.on("gameError", message => {
+    alert(message);
 });
 
 socket.on("gameState", state => {
-  console.log("Stan gry:", state);
+    currentState = state;
+    mySeat = state.you;
 
-  currentGameState = state;
+    showScreen(gameScreen);
 
-  lobbyScreen.style.display = "none";
-  gameScreen.style.display = "flex";
-
-  renderGame(state);
+    renderGame(state);
 });
 
-
-// =========================
-// RENDER GRY
-// =========================
-
 function renderGame(state) {
-  renderPlayers(state);
-  renderTrump(state);
-  renderScore(state);
-  renderTrick(state);
-  renderMyHand(state);
-  renderMessage(state);
-  renderTrumpButtons(state);
+    renderPlayers(state);
+    renderScores(state);
+    renderTrump(state);
+    renderTrick(state);
+    renderHand(state);
+    renderMessage(state);
 }
-
-
-// =========================
-// GRACZE
-// =========================
 
 function renderPlayers(state) {
-  if (!state.playerNames) {
-    return;
-  }
+    const names = state.playerNames || [];
 
-  const players =
-    state.playerNames;
+    const getName = seat => {
+        return names[seat] || "Gracz";
+    };
 
-  const topSeat =
-    (mySeat + 2) % 4;
+    const topSeat = (mySeat + 2) % 4;
+    const leftSeat = (mySeat + 1) % 4;
+    const rightSeat = (mySeat + 3) % 4;
 
-  const leftSeat =
-    (mySeat + 1) % 4;
-
-  const rightSeat =
-    (mySeat + 3) % 4;
-
-  if (topPlayer) {
-    topPlayer.textContent =
-      players[topSeat] || "Gracz";
-  }
-
-  if (leftPlayer) {
-    leftPlayer.textContent =
-      players[leftSeat] || "Gracz";
-  }
-
-  if (rightPlayer) {
-    rightPlayer.textContent =
-      players[rightSeat] || "Gracz";
-  }
+    topPlayer.textContent = getName(topSeat);
+    leftPlayer.textContent = getName(leftSeat);
+    rightPlayer.textContent = getName(rightSeat);
 }
 
-
-// =========================
-// ATU
-// =========================
+function renderScores(state) {
+    scoreTeam1.textContent = state.scores?.[0] ?? 0;
+    scoreTeam2.textContent = state.scores?.[1] ?? 0;
+}
 
 function renderTrump(state) {
-  if (!trumpDisplay) {
-    return;
-  }
-
-  if (!state.trump) {
-    trumpDisplay.textContent =
-      "Atu: —";
-
-    return;
-  }
-
-  const names = {
-    "♥": "Czerwo",
-    "♦": "Dzwonek",
-    "♣": "Krzak",
-    "♠": "Wino"
-  };
-
-  trumpDisplay.textContent =
-    `Atu: ${state.trump} ${names[state.trump]}`;
-}
-
-
-// =========================
-// PUNKTY
-// =========================
-
-function renderScore(state) {
-  if (scoreTeam1) {
-    scoreTeam1.textContent =
-      state.teamPoints?.[0] ?? 0;
-  }
-
-  if (scoreTeam2) {
-    scoreTeam2.textContent =
-      state.teamPoints?.[1] ?? 0;
-  }
-}
-
-
-// =========================
-// LEWA
-// =========================
-
-function renderTrick(state) {
-  if (!playedCards) {
-    return;
-  }
-
-  playedCards.innerHTML = "";
-
-  if (!state.trick) {
-    return;
-  }
-
-  state.trick.forEach(item => {
-    const card =
-      document.createElement("div");
-
-    card.className =
-      "played-card";
-
-    card.textContent =
-      `${item.card.rank}${item.card.suit}`;
-
-    card.title =
-      state.playerNames?.[item.player] ||
-      `Gracz ${item.player + 1}`;
-
-    playedCards.appendChild(card);
-  });
-}
-
-
-// =========================
-// MOJE KARTY
-// =========================
-
-function renderMyHand(state) {
-  if (!myCards) {
-    return;
-  }
-
-  myCards.innerHTML = "";
-
-  const hand =
-    state.hands?.[mySeat] || [];
-
-  const legalCards =
-    getLegalCardIds(state);
-
-  hand.forEach(card => {
-    if (!card || card.hidden) {
-      return;
-    }
-
-    const button =
-      document.createElement("button");
-
-    button.type = "button";
-
-    button.className = "card";
-
-    button.textContent =
-      `${card.rank}${card.suit}`;
-
-    const isLegal =
-      legalCards.includes(card.id);
-
-    if (
-      state.phase === "playing" &&
-      state.currentPlayer === mySeat &&
-      isLegal
-    ) {
-      button.classList.add("legal");
-
-      button.addEventListener(
-        "click",
-        () => {
-          socket.emit("playCard", {
-            cardId: card.id
-          });
-        }
-      );
+    if (state.trump) {
+        trumpDisplay.textContent =
+            `Obrany kolor: ${state.trump}`;
     } else {
-      button.classList.add("disabled");
+        trumpDisplay.textContent = "Obrany kolor: —";
     }
-
-    myCards.appendChild(button);
-  });
 }
-
-
-// =========================
-// LEGALNE KARTY
-// =========================
-
-function getLegalCardIds(state) {
-  if (
-    state.phase !== "playing" ||
-    state.currentPlayer !== mySeat
-  ) {
-    return [];
-  }
-
-  const hand =
-    state.hands?.[mySeat] || [];
-
-  const visibleHand =
-    hand.filter(
-      card => card && !card.hidden
-    );
-
-  if (!state.trick?.length) {
-    return visibleHand.map(
-      card => card.id
-    );
-  }
-
-  const leadSuit =
-    state.trick[0].card.suit;
-
-  const leadCards =
-    visibleHand.filter(
-      card =>
-        card.suit === leadSuit
-    );
-
-  /*
-   * Jeśli mamy kolor wyjścia,
-   * na potrzeby UI pokazujemy karty
-   * tego koloru.
-   *
-   * Serwer i tak jest ostatecznym
-   * sędzią legalności ruchu.
-   */
-  if (leadCards.length > 0) {
-    return leadCards.map(
-      card => card.id
-    );
-  }
-
-  /*
-   * Nie mamy koloru wyjścia.
-   * Możemy zagrać dowolną kartę.
-   */
-  return visibleHand.map(
-    card => card.id
-  );
-}
-
-
-// =========================
-// KOMUNIKAT
-// =========================
 
 function renderMessage(state) {
-  if (!gameMessage) {
-    return;
-  }
+    if (state.message) {
+        gameMessage.textContent = state.message;
+        return;
+    }
 
-  if (
-    state.phase === "trump" &&
-    state.chooser === mySeat
-  ) {
-    gameMessage.textContent =
-      "Wybierz atu.";
+    if (state.finished) {
+        gameMessage.textContent = "Koniec rozdania.";
+        return;
+    }
 
-    return;
-  }
+    if (state.currentPlayer === mySeat) {
+        gameMessage.textContent = "Twój ruch.";
+    } else {
+        const name =
+            state.playerNames?.[state.currentPlayer] || "Gracz";
 
-  if (
-    state.phase === "playing" &&
-    state.currentPlayer === mySeat
-  ) {
-    gameMessage.textContent =
-      "Twoja kolej.";
-
-    return;
-  }
-
-  if (state.phase === "finished") {
-    gameMessage.textContent =
-      state.lastMessage ||
-      "Koniec gry.";
-
-    return;
-  }
-
-  gameMessage.textContent =
-    state.lastMessage || "";
+        gameMessage.textContent =
+            `Ruch gracza: ${name}`;
+    }
 }
 
+function renderTrick(state) {
+    playedCards.innerHTML = "";
 
-// =========================
-// PRZYCISKI ATU
-// =========================
+    if (!state.trick || state.trick.length === 0) {
+        return;
+    }
 
-function renderTrumpButtons(state) {
-  if (!trumpButtons) {
-    return;
-  }
+    state.trick.forEach(play => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "played-card";
 
-  const shouldShow =
-    state.phase === "trump" &&
-    state.chooser === mySeat;
+        /*
+         * Najważniejsza zmiana:
+         * nad każdą kartą pokazujemy nick gracza,
+         * który ją rzucił.
+         */
 
-  trumpButtons.style.display =
-    shouldShow ? "flex" : "none";
+        const playerName = document.createElement("div");
+        playerName.className = "played-card-player";
+
+        const name =
+            play.playerName ||
+            state.playerNames?.[play.player] ||
+            `Gracz ${Number(play.player) + 1}`;
+
+        playerName.textContent = name;
+
+        const card = document.createElement("div");
+        card.className = "card";
+
+        if (play.card?.suit === "♥" || play.card?.suit === "♦") {
+            card.classList.add("red");
+        } else {
+            card.classList.add("black");
+        }
+
+        if (play.card) {
+            card.innerHTML = `
+                <div class="card-rank">${play.card.rank}</div>
+                <div class="card-suit">${play.card.suit}</div>
+            `;
+        }
+
+        wrapper.appendChild(playerName);
+        wrapper.appendChild(card);
+
+        playedCards.appendChild(wrapper);
+    });
 }
+
+function renderHand(state) {
+    myCards.innerHTML = "";
+
+    if (!state.hand) {
+        return;
+    }
+
+    state.hand.forEach(card => {
+        const button = document.createElement("button");
+
+        button.type = "button";
+        button.className = "card hand-card";
+
+        if (card.suit === "♥" || card.suit === "♦") {
+            button.classList.add("red");
+        } else {
+            button.classList.add("black");
+        }
+
+        const isMyTurn =
+            state.currentPlayer === mySeat &&
+            !state.finished;
+
+        if (!isMyTurn) {
+            button.disabled = true;
+        }
+
+        button.innerHTML = `
+            <div class="card-rank">${card.rank}</div>
+            <div class="card-suit">${card.suit}</div>
+        `;
+
+        button.addEventListener("click", () => {
+            if (!isMyTurn) {
+                return;
+            }
+
+            socket.emit("playCard", {
+                cardId: card.id
+            });
+        });
+
+        myCards.appendChild(button);
+    });
+
+    if (
+        state.trump === null &&
+        state.trumpChooser === mySeat &&
+        !state.finished
+    ) {
+        renderTrumpButtons();
+    }
+}
+
+function renderTrumpButtons() {
+    const oldButtons =
+        document.querySelector(".trump-buttons");
+
+    if (oldButtons) {
+        oldButtons.remove();
+    }
+
+    const container = document.createElement("div");
+    container.className = "trump-buttons";
+
+    const title = document.createElement("div");
+    title.className = "trump-title";
+    title.textContent = "Obieraj";
+
+    container.appendChild(title);
+
+    const suits = [
+        { suit: "♥", name: "Czerwo" },
+        { suit: "♦", name: "Dzwonek" },
+        { suit: "♣", name: "Krzak" },
+        { suit: "♠", name: "Wino" }
+    ];
+
+    suits.forEach(item => {
+        const button = document.createElement("button");
+
+        button.type = "button";
+        button.className = "trump-button";
+
+        if (item.suit === "♥" || item.suit === "♦") {
+            button.classList.add("red");
+        } else {
+            button.classList.add("black");
+        }
+
+        button.textContent =
+            `${item.suit} ${item.name}`;
+
+        button.addEventListener("click", () => {
+            socket.emit("chooseTrump", {
+                suit: item.suit
+            });
+
+            container.remove();
+        });
+
+        container.appendChild(button);
+    });
+
+    document.body.appendChild(container);
+}
+
+socket.on("disconnect", () => {
+    console.log("Rozłączono z serwerem.");
+});
