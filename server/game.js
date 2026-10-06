@@ -53,10 +53,14 @@ return deck;
 
 function shuffle(deck) {
 for (let i = deck.length - 1; i > 0; i--) {
-const j = Math.floor(Math.random() * (i + 1));
+const j =
+Math.floor(
+Math.random() * (i + 1)
+);
 
 ```
-    [deck[i], deck[j]] = [deck[j], deck[i]];
+    [deck[i], deck[j]] =
+        [deck[j], deck[i]];
 }
 
 return deck;
@@ -160,6 +164,12 @@ players,
 
     lastTrickTeam: null,
 
+    specialCaught: false,
+
+    specialSoloTricks: 0,
+
+    specialOpponentTricks: 0,
+
     message: ""
 };
 ```
@@ -218,12 +228,21 @@ game.lufaStage = null;
 game.lufaUntil = null;
 
 game.pendingMeldMessage = null;
+
+game.specialCaught = false;
+
+game.specialSoloTricks = 0;
+
+game.specialOpponentTricks = 0;
 ```
 
 }
 
 function dealInitialCards(game) {
-game.deck = shuffle(createDeck());
+game.deck =
+shuffle(
+createDeck()
+);
 
 ```
 game.hands = [
@@ -240,7 +259,9 @@ game.dealStage = "first3";
 game.phase = "trump";
 
 game.chooser =
-    Number.isInteger(game.nextChooser)
+    Number.isInteger(
+        game.nextChooser
+    )
         ? game.nextChooser
         : 0;
 
@@ -250,9 +271,19 @@ game.currentPlayer =
 game.leader =
     game.chooser;
 
-for (let round = 0; round < 3; round++) {
-    for (let player = 0; player < 4; player++) {
-        if (game.deck.length === 0) {
+for (
+    let round = 0;
+    round < 3;
+    round++
+) {
+    for (
+        let player = 0;
+        player < 4;
+        player++
+    ) {
+        if (
+            game.deck.length === 0
+        ) {
             break;
         }
 
@@ -263,7 +294,10 @@ for (let round = 0; round < 3; round++) {
 }
 
 game.message =
-    `${getPlayerName(game, game.chooser)} obiera kolor albo wybiera Lepszą/Gorszą.`;
+    `${getPlayerName(
+        game,
+        game.chooser
+    )} obiera kolor albo wybiera Lepszą/Gorszą.`;
 ```
 
 }
@@ -276,14 +310,25 @@ game.phase !== "special"
 ) {
 return {
 ok: false,
-error: "Nie można teraz rozdać kolejnych kart."
+error:
+"Nie można teraz rozdać kolejnych kart."
 };
 }
 
 ```
-for (let round = 0; round < 3; round++) {
-    for (let player = 0; player < 4; player++) {
-        if (game.deck.length === 0) {
+for (
+    let round = 0;
+    round < 3;
+    round++
+) {
+    for (
+        let player = 0;
+        player < 4;
+        player++
+    ) {
+        if (
+            game.deck.length === 0
+        ) {
             break;
         }
 
@@ -312,13 +357,21 @@ if (
         game.soloPlayer;
 
     game.message =
-        `${getPlayerName(game, game.soloPlayer)} wychodzi.`;
+        `${getPlayerName(
+            game,
+            game.soloPlayer
+        )} wychodzi.`;
 } else {
     game.currentPlayer =
         game.leader;
 
     game.message =
-        `Wychodzi ${getPlayerName(game, game.leader)}.`;
+        `Wychodzi ${
+            getPlayerName(
+                game,
+                game.leader
+            )
+        }.`;
 }
 
 return {
@@ -332,26 +385,36 @@ return {
 TRUMP
 ========================= */
 
-function chooseTrump(game, playerIndex, trump) {
+function chooseTrump(
+game,
+playerIndex,
+trump
+) {
 if (game.phase !== "trump") {
 return {
 ok: false,
-error: "Teraz nie można obierać koloru."
+error:
+"Teraz nie można obierać koloru."
 };
 }
 
 ```
-if (game.currentPlayer !== playerIndex) {
+if (
+    game.currentPlayer !==
+    playerIndex
+) {
     return {
         ok: false,
-        error: "Nie jest Twoja kolej na obieranie."
+        error:
+            "Nie jest Twoja kolej na obieranie."
     };
 }
 
 if (!SUITS.includes(trump)) {
     return {
         ok: false,
-        error: "Nieprawidłowy kolor."
+        error:
+            "Nieprawidłowy kolor."
     };
 }
 
@@ -359,7 +422,8 @@ game.trump = trump;
 
 game.phase = "lufa";
 
-game.lufaStage = "afterFirst3";
+game.lufaStage =
+    "afterFirst3";
 
 game.lufaWindow = true;
 
@@ -373,12 +437,18 @@ game.lufaActive = false;
 game.lastLufaPlayer = null;
 
 game.message =
-    `${getPlayerName(game, playerIndex)} obrał ${SUIT_NAMES[trump]}. 5 sekund na Lufę.`;
+    `${getPlayerName(
+        game,
+        playerIndex
+    )} obrał ${
+        SUIT_NAMES[trump]
+    }. 5 sekund na Lufę.`;
 
 return {
     ok: true,
     lufaWindow: true,
-    lufaUntil: game.lufaUntil
+    lufaUntil:
+        game.lufaUntil
 };
 ```
 
@@ -388,19 +458,28 @@ return {
 SPECIAL MODES
 ========================= */
 
-function chooseSpecialMode(game, playerIndex, mode) {
+function chooseSpecialMode(
+game,
+playerIndex,
+mode
+) {
 if (game.phase !== "trump") {
 return {
 ok: false,
-error: "Teraz nie można wybrać tego trybu."
+error:
+"Teraz nie można wybrać tego trybu."
 };
 }
 
 ```
-if (game.currentPlayer !== playerIndex) {
+if (
+    game.currentPlayer !==
+    playerIndex
+) {
     return {
         ok: false,
-        error: "Nie jest Twoja kolej na wybór."
+        error:
+            "Nie jest Twoja kolej na wybór."
     };
 }
 
@@ -410,7 +489,8 @@ if (
 ) {
     return {
         ok: false,
-        error: "Nieprawidłowy tryb."
+        error:
+            "Nieprawidłowy tryb."
     };
 }
 
@@ -418,10 +498,12 @@ game.mode = mode;
 
 game.trump = null;
 
-game.soloPlayer = playerIndex;
+game.soloPlayer =
+    playerIndex;
 
 game.soloTeam =
-    game.players[playerIndex]?.team ?? null;
+    game.players[playerIndex]?.team ??
+    null;
 
 if (
     game.soloTeam === 0 ||
@@ -431,15 +513,23 @@ if (
         game.players.findIndex(
             (player, index) =>
                 index !== playerIndex &&
-                player.team === game.soloTeam
+                player.team ===
+                    game.soloTeam
         );
 } else {
     game.skippedPlayer = null;
 }
 
+game.specialCaught = false;
+
+game.specialSoloTricks = 0;
+
+game.specialOpponentTricks = 0;
+
 game.phase = "lufa";
 
-game.lufaStage = "afterFirst3";
+game.lufaStage =
+    "afterFirst3";
 
 game.lufaWindow = true;
 
@@ -458,7 +548,10 @@ const label =
         : "Gorsza";
 
 game.message =
-    `${getPlayerName(game, playerIndex)} wybiera ${label}. 5 sekund na Lufę.`;
+    `${getPlayerName(
+        game,
+        playerIndex
+    )} wybiera ${label}. 5 sekund na Lufę.`;
 
 return {
     ok: true,
@@ -472,7 +565,10 @@ return {
 LUFA
 ========================= */
 
-function canCallLufa(game, playerIndex) {
+function canCallLufa(
+game,
+playerIndex
+) {
 if (game.phase !== "lufa") {
 return false;
 }
@@ -482,7 +578,10 @@ if (!game.lufaWindow) {
     return false;
 }
 
-if (playerIndex === game.chooser) {
+if (
+    playerIndex ===
+    game.chooser
+) {
     return false;
 }
 
@@ -491,11 +590,20 @@ return true;
 
 }
 
-function callLufa(game, playerIndex) {
-if (!canCallLufa(game, playerIndex)) {
+function callLufa(
+game,
+playerIndex
+) {
+if (
+!canCallLufa(
+game,
+playerIndex
+)
+) {
 return {
 ok: false,
-error: "Teraz nie możesz powiedzieć Lufa."
+error:
+"Teraz nie możesz powiedzieć Lufa."
 };
 }
 
@@ -504,28 +612,45 @@ game.lufaMultiplier *= 2;
 
 game.lufaActive = true;
 
-game.lastLufaPlayer = playerIndex;
+game.lastLufaPlayer =
+    playerIndex;
 
 game.lufaUntil =
     Date.now() + 5000;
 
 game.message =
-    `${getPlayerName(game, playerIndex)}: LUFA ×${game.lufaMultiplier}.`;
+    `${getPlayerName(
+        game,
+        playerIndex
+    )}: LUFA ×${
+        game.lufaMultiplier
+    }.`;
 
 return {
     ok: true,
-    multiplier: game.lufaMultiplier,
-    lufaUntil: game.lufaUntil
+    multiplier:
+        game.lufaMultiplier,
+    lufaUntil:
+        game.lufaUntil
 };
 ```
 
 }
 
-function callBackLufa(game, playerIndex) {
-if (!canCallLufa(game, playerIndex)) {
+function callBackLufa(
+game,
+playerIndex
+) {
+if (
+!canCallLufa(
+game,
+playerIndex
+)
+) {
 return {
 ok: false,
-error: "Teraz nie możesz powiedzieć Z powrotem."
+error:
+"Teraz nie możesz powiedzieć Z powrotem."
 };
 }
 
@@ -534,18 +659,26 @@ game.lufaMultiplier *= 2;
 
 game.lufaActive = true;
 
-game.lastLufaPlayer = playerIndex;
+game.lastLufaPlayer =
+    playerIndex;
 
 game.lufaUntil =
     Date.now() + 5000;
 
 game.message =
-    `${getPlayerName(game, playerIndex)}: Z POWROTEM ×${game.lufaMultiplier}.`;
+    `${getPlayerName(
+        game,
+        playerIndex
+    )}: Z POWROTEM ×${
+        game.lufaMultiplier
+    }.`;
 
 return {
     ok: true,
-    multiplier: game.lufaMultiplier,
-    lufaUntil: game.lufaUntil
+    multiplier:
+        game.lufaMultiplier,
+    lufaUntil:
+        game.lufaUntil
 };
 ```
 
@@ -555,7 +688,8 @@ function finishLufaWindow(game) {
 if (!game.lufaWindow) {
 return {
 ok: false,
-error: "Okno Lufy nie jest aktywne."
+error:
+"Okno Lufy nie jest aktywne."
 };
 }
 
@@ -564,11 +698,17 @@ game.lufaWindow = false;
 
 game.lufaUntil = null;
 
-if (game.lufaStage === "afterFirst3") {
-    game.lufaStage = "afterLast3";
+if (
+    game.lufaStage ===
+    "afterFirst3"
+) {
+    game.lufaStage =
+        "afterLast3";
 
     const result =
-        dealRemainingCards(game);
+        dealRemainingCards(
+            game
+        );
 
     if (!result.ok) {
         return result;
@@ -582,7 +722,7 @@ if (game.lufaStage === "afterFirst3") {
         Date.now() + 5000;
 
     game.message =
-        `Rozdano kolejne 3 karty. 5 sekund na Lufę.`;
+        "Rozdano kolejne 3 karty. 5 sekund na Lufę.";
 
     return {
         ok: true,
@@ -590,7 +730,10 @@ if (game.lufaStage === "afterFirst3") {
     };
 }
 
-if (game.lufaStage === "afterLast3") {
+if (
+    game.lufaStage ===
+    "afterLast3"
+) {
     game.lufaWindow = false;
 
     game.phase = "playing";
@@ -606,13 +749,21 @@ if (game.lufaStage === "afterLast3") {
             game.soloPlayer;
 
         game.message =
-            `${getPlayerName(game, game.soloPlayer)} wychodzi.`;
+            `${getPlayerName(
+                game,
+                game.soloPlayer
+            )} wychodzi.`;
     } else {
         game.currentPlayer =
             game.leader;
 
         game.message =
-            `${getPlayerName(game, game.leader)} wychodzi.`;
+            `Wychodzi ${
+                getPlayerName(
+                    game,
+                    game.leader
+                )
+            }.`;
     }
 
     return {
@@ -634,13 +785,21 @@ return {
 CARD COMPARISON
 ========================= */
 
-function cardBeats(cardA, cardB, leadSuit, trump) {
+function cardBeats(
+cardA,
+cardB,
+leadSuit,
+trump
+) {
 if (!cardA || !cardB) {
 return false;
 }
 
 ```
-if (cardA.suit === cardB.suit) {
+if (
+    cardA.suit ===
+    cardB.suit
+) {
     return (
         RANK_POWER[cardA.rank] >
         RANK_POWER[cardB.rank]
@@ -663,7 +822,10 @@ if (
     return false;
 }
 
-if (cardA.suit === leadSuit) {
+if (
+    cardA.suit ===
+    leadSuit
+) {
     return true;
 }
 
@@ -672,7 +834,10 @@ return false;
 
 }
 
-function getWinningPlay(trick, game) {
+function getWinningPlay(
+trick,
+game
+) {
 if (!trick.length) {
 return null;
 }
@@ -684,7 +849,11 @@ const leadSuit =
 let winner =
     trick[0];
 
-for (let i = 1; i < trick.length; i++) {
+for (
+    let i = 1;
+    i < trick.length;
+    i++
+) {
     const candidate =
         trick[i];
 
@@ -696,7 +865,8 @@ for (let i = 1; i < trick.length; i++) {
             game.trump
         )
     ) {
-        winner = candidate;
+        winner =
+            candidate;
     }
 }
 
@@ -709,7 +879,10 @@ return winner;
 ACTIVE PLAYERS
 ========================= */
 
-function isPlayerActive(game, playerIndex) {
+function isPlayerActive(
+game,
+playerIndex
+) {
 if (
 game.mode !== "lepsza" &&
 game.mode !== "gorsza"
@@ -718,7 +891,10 @@ return true;
 }
 
 ```
-return playerIndex !== game.skippedPlayer;
+return (
+    playerIndex !==
+    game.skippedPlayer
+);
 ```
 
 }
@@ -727,8 +903,17 @@ function getActivePlayers(game) {
 const active = [];
 
 ```
-for (let i = 0; i < game.players.length; i++) {
-    if (isPlayerActive(game, i)) {
+for (
+    let i = 0;
+    i < game.players.length;
+    i++
+) {
+    if (
+        isPlayerActive(
+            game,
+            i
+        )
+    ) {
         active.push(i);
     }
 }
@@ -738,9 +923,14 @@ return active;
 
 }
 
-function getNextActivePlayer(game, playerIndex) {
+function getNextActivePlayer(
+game,
+playerIndex
+) {
 const active =
-getActivePlayers(game);
+getActivePlayers(
+game
+);
 
 ```
 if (!active.length) {
@@ -748,20 +938,28 @@ if (!active.length) {
 }
 
 const currentPosition =
-    active.indexOf(playerIndex);
+    active.indexOf(
+        playerIndex
+    );
 
-if (currentPosition === -1) {
+if (
+    currentPosition === -1
+) {
     return active[0];
 }
 
 return active[
-    (currentPosition + 1) % active.length
+    (
+        currentPosition + 1
+    ) % active.length
 ];
 ```
 
 }
 
-function getExpectedTrickLength(game) {
+function getExpectedTrickLength(
+game
+) {
 if (
 game.mode === "lepsza" ||
 game.mode === "gorsza"
@@ -779,8 +977,15 @@ return 4;
 LEGAL PLAY
 ========================= */
 
-function isLegalPlay(game, playerIndex, card) {
-if (game.phase !== "playing") {
+function isLegalPlay(
+game,
+playerIndex,
+card
+) {
+if (
+game.phase !==
+"playing"
+) {
 return false;
 }
 
@@ -789,11 +994,19 @@ if (game.handFinished) {
     return false;
 }
 
-if (!isPlayerActive(game, playerIndex)) {
+if (
+    !isPlayerActive(
+        game,
+        playerIndex
+    )
+) {
     return false;
 }
 
-if (game.currentPlayer !== playerIndex) {
+if (
+    game.currentPlayer !==
+    playerIndex
+) {
     return false;
 }
 
@@ -807,15 +1020,19 @@ const hand =
 const cardInHand =
     hand.find(
         c =>
-            c.suit === card.suit &&
-            c.rank === card.rank
+            c.suit ===
+                card.suit &&
+            c.rank ===
+                card.rank
     );
 
 if (!cardInHand) {
     return false;
 }
 
-if (game.trick.length === 0) {
+if (
+    game.trick.length === 0
+) {
     return true;
 }
 
@@ -824,7 +1041,9 @@ const leadSuit =
 
 const hasLeadSuit =
     hand.some(
-        c => c.suit === leadSuit
+        c =>
+            c.suit ===
+            leadSuit
     );
 
 const trump =
@@ -839,7 +1058,10 @@ const trump =
  * Masz kolor wyjścia.
  */
 if (hasLeadSuit) {
-    if (card.suit !== leadSuit) {
+    if (
+        card.suit !==
+        leadSuit
+    ) {
         return false;
     }
 
@@ -854,18 +1076,23 @@ if (hasLeadSuit) {
     }
 
     const canBeat =
-        hand.some(otherCard => {
-            if (otherCard.suit !== leadSuit) {
-                return false;
-            }
+        hand.some(
+            otherCard => {
+                if (
+                    otherCard.suit !==
+                    leadSuit
+                ) {
+                    return false;
+                }
 
-            return cardBeats(
-                otherCard,
-                winningPlay.card,
-                leadSuit,
-                trump
-            );
-        });
+                return cardBeats(
+                    otherCard,
+                    winningPlay.card,
+                    leadSuit,
+                    trump
+                );
+            }
+        );
 
     if (canBeat) {
         return cardBeats(
@@ -888,11 +1115,16 @@ if (hasLeadSuit) {
 if (trump) {
     const hasTrump =
         hand.some(
-            c => c.suit === trump
+            c =>
+                c.suit ===
+                trump
         );
 
     if (hasTrump) {
-        return card.suit === trump;
+        return (
+            card.suit ===
+            trump
+        );
     }
 }
 
@@ -905,7 +1137,11 @@ return true;
 MELD
 ========================= */
 
-function checkMeld(game, playerIndex, card) {
+function checkMeld(
+game,
+playerIndex,
+card
+) {
 if (card.rank !== "Q") {
 return;
 }
@@ -917,7 +1153,8 @@ const hand =
 const hasKing =
     hand.some(
         c =>
-            c.suit === card.suit &&
+            c.suit ===
+                card.suit &&
             c.rank === "K"
     );
 
@@ -933,31 +1170,45 @@ if (
 }
 
 const team =
-    game.players[playerIndex].team;
+    game.players[
+        playerIndex
+    ].team;
 
-if (team !== 0 && team !== 1) {
+if (
+    team !== 0 &&
+    team !== 1
+) {
     return;
 }
 
 const points =
-    card.suit === game.trump
+    card.suit ===
+    game.trump
         ? 40
         : 20;
 
-game.pendingMelds[team] += points;
+game.pendingMelds[team] +=
+    points;
 
 if (
-    !game.pendingMeldPlayers[team].includes(
+    !game.pendingMeldPlayers[
+        team
+    ].includes(
         playerIndex
     )
 ) {
-    game.pendingMeldPlayers[team].push(
+    game.pendingMeldPlayers[
+        team
+    ].push(
         playerIndex
     );
 }
 
 game.pendingMeldMessage =
-    `${getPlayerName(game, playerIndex)} melduje ${points} punktów.`;
+    `${getPlayerName(
+        game,
+        playerIndex
+    )} melduje ${points} punktów.`;
 
 game.message =
     game.pendingMeldMessage;
@@ -965,8 +1216,13 @@ game.message =
 
 }
 
-function confirmPendingMeld(game, team) {
-if (game.pendingMelds[team] <= 0) {
+function confirmPendingMeld(
+game,
+team
+) {
+if (
+game.pendingMelds[team] <= 0
+) {
 return;
 }
 
@@ -974,11 +1230,14 @@ return;
 const points =
     game.pendingMelds[team];
 
-game.scores[team] += points;
+game.scores[team] +=
+    points;
 
 game.pendingMelds[team] = 0;
 
-game.pendingMeldPlayers[team] = [];
+game.pendingMeldPlayers[
+    team
+] = [];
 
 game.message =
     `Meld zaliczony: +${points} punktów.`;
@@ -990,18 +1249,30 @@ game.message =
 SPECIAL MODES
 ========================= */
 
-function getSpecialTargetPoints(game) {
-if (game.mode === "lepsza") {
-return game.dealStage === "first3"
+function getSpecialTargetPoints(
+game
+) {
+if (
+game.mode === "lepsza"
+) {
+return (
+game.dealStage ===
+"first3"
 ? 24
-: 12;
+: 12
+);
 }
 
 ```
-if (game.mode === "gorsza") {
-    return game.dealStage === "first3"
-        ? 12
-        : 6;
+if (
+    game.mode === "gorsza"
+) {
+    return (
+        game.dealStage ===
+        "first3"
+            ? 12
+            : 6
+    );
 }
 
 return 0;
@@ -1011,173 +1282,207 @@ return 0;
 
 /*
 
-* W trybie specjalnym wynik nie jest liczony
-* jak zwykłe 66.
+* W trybach specjalnych obierający
+* gra sam przeciwko dwóm przeciwnikom.
 *
-* Istotne jest, czy obierający został złapany.
+* Nie ma atutu.
 *
-* "Złapanie" następuje wtedy, gdy przeciwnicy
-* przejmą kontrolę nad sztychem w sposób,
-* który uniemożliwia obierającemu dalszą ucieczkę.
+* "Gorsza":
+* obierający nie może wziąć sztycha.
+* Jeżeli sam wygra choć jeden sztych,
+* zostaje złapany.
 *
-* Na tym etapie zachowujemy przebieg sztychów,
-* ale nie kończymy rozdania wyłącznie dlatego,
-* że przeciwnik wygrał jeden sztych.
+* "Lepsza":
+* obierający musi utrzymać kontrolę
+* nad rozgrywką według zasad trybu.
+* Wynik jest rozstrzygany po zakończeniu
+* wszystkich kart.
   */
-  function finishSpecialTrick(game) {
-  if (!game.trick.length) {
-  return;
-  }
 
-  const winningPlay =
-  getWinningPlay(
-  game.trick,
-  game
-  );
-
-  if (!winningPlay) {
-  return;
-  }
-
-  const winnerIndex =
-  winningPlay.playerIndex;
-
-  const solo =
-  game.soloPlayer;
-
-  let trickPoints = 0;
-
-  for (const play of game.trick) {
-  trickPoints += play.card.value;
-  }
-
-  const soloWon =
-  winnerIndex === solo;
-
-  const opponentTeam =
-  game.soloTeam === 0
-  ? 1
-  : 0;
-
-  /*
-
-  * Punkty kart trafiają do strony,
-  * która wygrała sztych.
-    */
-    if (soloWon) {
-    if (
-    game.soloTeam === 0 ||
-    game.soloTeam === 1
-    ) {
-    game.scores[game.soloTeam] +=
-    trickPoints;
-    }
-    } else {
-    game.scores[opponentTeam] +=
-    trickPoints;
-    }
-
-  game.lastTrickWinner =
-  winnerIndex;
-
-  game.lastTrickPoints =
-  trickPoints;
-
-  game.lastTrickTeam =
-  soloWon
-  ? game.soloTeam
-  : opponentTeam;
-
-  game.tricksWon[
-  game.lastTrickTeam
-  ]++;
-
-  game.leader =
-  winnerIndex;
-
-  game.currentPlayer =
-  winnerIndex;
-
-  game.trick = [];
-
-  /*
-
-  * Jeżeli skończyły się karty aktywnych
-  * graczy, rozstrzygamy specjalne rozdanie.
-    */
-    const activePlayers =
-    getActivePlayers(game);
-
-  const cardsRemaining =
-  activePlayers.some(
-  index =>
-  game.hands[index] &&
-  game.hands[index].length > 0
-  );
-
-  if (!cardsRemaining) {
-  finishSpecialGame(
-  game,
-  determineSpecialResult(game)
-  );
-
-  ```
-   return;
-  ```
-
-  }
-
-  game.message =
-  `${getPlayerName(game, winnerIndex)} bierze sztycha i wychodzi.`;
-  }
-
-function determineSpecialResult(game) {
-const solo =
-game.soloPlayer;
+function finishSpecialTrick(game) {
+if (!game.trick.length) {
+return;
+}
 
 ```
-/*
- * W pierwszej wersji mechaniki:
- * - Lepsza: obierający wygrywa, jeżeli
- *   przeciwnicy nie zdołają go złapać.
- * - Gorsza: obierający wygrywa, jeżeli
- *   również uniknie złapania.
- *
- * Szczegółowe warunki złapania będziemy
- * dopracowywać osobno, bez mieszania ich
- * z normalnym 66.
- */
-const soloTricks =
-    game.tricksWon[game.soloTeam] || 0;
+const winningPlay =
+    getWinningPlay(
+        game.trick,
+        game
+    );
+
+if (!winningPlay) {
+    return;
+}
+
+const winnerIndex =
+    winningPlay.playerIndex;
+
+const solo =
+    game.soloPlayer;
+
+let trickPoints = 0;
+
+for (
+    const play of game.trick
+) {
+    trickPoints +=
+        play.card.value;
+}
+
+const soloWon =
+    winnerIndex === solo;
 
 const opponentTeam =
     game.soloTeam === 0
         ? 1
         : 0;
 
-const opponentTricks =
-    game.tricksWon[opponentTeam] || 0;
+if (soloWon) {
+    if (
+        game.soloTeam === 0 ||
+        game.soloTeam === 1
+    ) {
+        game.scores[
+            game.soloTeam
+        ] += trickPoints;
+    }
 
-if (game.mode === "lepsza") {
-    return soloTricks > 0
-        ? "solo"
-        : "opponents";
+    game.specialSoloTricks++;
+
+    /*
+     * W Gorszej samodzielne wzięcie
+     * sztycha oznacza złapanie.
+     */
+    if (
+        game.mode === "gorsza"
+    ) {
+        game.specialCaught =
+            true;
+    }
+} else {
+    game.scores[
+        opponentTeam
+    ] += trickPoints;
+
+    game.specialOpponentTricks++;
 }
 
-if (game.mode === "gorsza") {
-    return opponentTricks === 0
-        ? "solo"
-        : "opponents";
+game.lastTrickWinner =
+    winnerIndex;
+
+game.lastTrickPoints =
+    trickPoints;
+
+game.lastTrickTeam =
+    soloWon
+        ? game.soloTeam
+        : opponentTeam;
+
+game.tricksWon[
+    game.lastTrickTeam
+]++;
+
+game.leader =
+    winnerIndex;
+
+game.currentPlayer =
+    winnerIndex;
+
+game.trick = [];
+
+const activePlayers =
+    getActivePlayers(
+        game
+    );
+
+const cardsRemaining =
+    activePlayers.some(
+        index =>
+            game.hands[index] &&
+            game.hands[index]
+                .length > 0
+    );
+
+/*
+ * Gorsza:
+ * jeżeli obierający został złapany,
+ * rozdanie kończy się od razu.
+ */
+if (
+    game.mode === "gorsza" &&
+    game.specialCaught
+) {
+    finishSpecialGame(
+        game,
+        "opponents"
+    );
+
+    return;
 }
 
-return solo === game.currentPlayer
-    ? "solo"
-    : "opponents";
+if (!cardsRemaining) {
+    finishSpecialGame(
+        game,
+        determineSpecialResult(
+            game
+        )
+    );
+
+    return;
+}
+
+game.message =
+    `${getPlayerName(
+        game,
+        winnerIndex
+    )} bierze sztycha i wychodzi.`;
 ```
 
 }
 
-function finishSpecialGame(game, result) {
+function determineSpecialResult(
+game
+) {
+/*
+* Gorsza:
+* jeżeli obierający nie został
+* złapany do końca, wygrywa obierający.
+*/
+if (
+game.mode === "gorsza"
+) {
+return game.specialCaught
+? "opponents"
+: "solo";
+}
+
+```
+/*
+ * Lepsza:
+ * obierający musi wygrać przynajmniej
+ * jeden sztych. Jeżeli nie przejął
+ * żadnego, wygrywają przeciwnicy.
+ */
+if (
+    game.mode === "lepsza"
+) {
+    return (
+        game.specialSoloTricks > 0
+            ? "solo"
+            : "opponents"
+    );
+}
+
+return "opponents";
+```
+
+}
+
+function finishSpecialGame(
+game,
+result
+) {
 if (game.handFinished) {
 return;
 }
@@ -1192,29 +1497,49 @@ const opponentTeam =
         ? 1
         : 0;
 
-if (result === "solo") {
+const target =
+    getSpecialTargetPoints(
+        game
+    );
+
+if (
+    result === "solo"
+) {
     game.winner =
         game.soloTeam;
 
-    const target =
-        getSpecialTargetPoints(game);
-
-    game.scores[game.soloTeam] =
+    game.scores[
+        game.soloTeam
+    ] =
         Math.max(
-            game.scores[game.soloTeam],
+            game.scores[
+                game.soloTeam
+            ],
             target
         );
 
-    game.overallScores[game.soloTeam] +=
-        target;
+    game.overallScores[
+        game.soloTeam
+    ] += target;
 
-    game.gameWins[game.soloTeam]++;
+    game.gameWins[
+        game.soloTeam
+    ]++;
 
     game.message =
-        `${getPlayerName(game, game.soloPlayer)} wygrywa ${game.mode === "lepsza" ? "Lepszą" : "Gorszą"}.`;
+        `${getPlayerName(
+            game,
+            game.soloPlayer
+        )} wygrywa ${
+            game.mode === "lepsza"
+                ? "Lepszą"
+                : "Gorszą"
+        } za ${target} punktów.`;
 
     game.nextChooser =
-        (game.chooser + 1) % 4;
+        (
+            game.chooser + 1
+        ) % 4;
 
     return;
 }
@@ -1222,25 +1547,31 @@ if (result === "solo") {
 game.winner =
     opponentTeam;
 
-const target =
-    getSpecialTargetPoints(game);
-
-game.scores[opponentTeam] =
+game.scores[
+    opponentTeam
+] =
     Math.max(
-        game.scores[opponentTeam],
+        game.scores[
+            opponentTeam
+        ],
         target
     );
 
-game.overallScores[opponentTeam] +=
-    target;
+game.overallScores[
+    opponentTeam
+] += target;
 
-game.gameWins[opponentTeam]++;
+game.gameWins[
+    opponentTeam
+]++;
 
 game.message =
-    `Obierający został złapany. Wygrywa drużyna przeciwna.`;
+    `Obierający został złapany. Wygrywa drużyna przeciwna za ${target} punktów.`;
 
 game.nextChooser =
-    (game.chooser + 1) % 4;
+    (
+        game.chooser + 1
+    ) % 4;
 ```
 
 }
@@ -1265,19 +1596,26 @@ const winnerIndex =
     winningPlay.playerIndex;
 
 const winnerTeam =
-    game.players[winnerIndex].team;
+    game.players[
+        winnerIndex
+    ].team;
 
 let trickPoints = 0;
 
-for (const play of game.trick) {
+for (
+    const play of game.trick
+) {
     trickPoints +=
         play.card.value;
 }
 
-game.scores[winnerTeam] +=
-    trickPoints;
+game.scores[
+    winnerTeam
+] += trickPoints;
 
-game.tricksWon[winnerTeam]++;
+game.tricksWon[
+    winnerTeam
+]++;
 
 confirmPendingMeld(
     game,
@@ -1308,7 +1646,10 @@ if (game.handFinished) {
 }
 
 game.message =
-    `${getPlayerName(game, winnerIndex)} bierze sztycha. Drużyna zdobywa ${trickPoints} pkt.`;
+    `${getPlayerName(
+        game,
+        winnerIndex
+    )} bierze sztycha. Drużyna zdobywa ${trickPoints} pkt.`;
 ```
 
 }
@@ -1318,28 +1659,44 @@ game.message =
 ========================= */
 
 function check66(game) {
-for (let team = 0; team < 2; team++) {
-if (game.scores[team] >= 66) {
-game.handFinished = true;
+for (
+let team = 0;
+team < 2;
+team++
+) {
+if (
+game.scores[team] >= 66
+) {
+game.handFinished =
+true;
 
 ```
-        game.winner = team;
+        game.winner =
+            team;
 
-        game.phase = "finished";
+        game.phase =
+            "finished";
 
-        game.overallScores[team] +=
-            game.scores[team];
+        game.overallScores[
+            team
+        ] += game.scores[team];
 
-        game.gameWins[team]++;
+        game.gameWins[
+            team
+        ]++;
 
         game.message =
             `${getTeamNameFromPlayers(
                 game.players,
                 team
-            )} zdobywa ${game.scores[team]} punktów i wygrywa rozdanie!`;
+            )} zdobywa ${
+                game.scores[team]
+            } punktów i wygrywa rozdanie!`;
 
         game.nextChooser =
-            (game.chooser + 1) % 4;
+            (
+                game.chooser + 1
+            ) % 4;
 
         return;
     }
@@ -1352,11 +1709,19 @@ game.handFinished = true;
 PLAY CARD
 ========================= */
 
-function playCard(game, playerIndex, card) {
-if (game.phase !== "playing") {
+function playCard(
+game,
+playerIndex,
+card
+) {
+if (
+game.phase !==
+"playing"
+) {
 return {
 ok: false,
-error: "Gra nie jest w fazie rozgrywania."
+error:
+"Gra nie jest w fazie rozgrywania."
 };
 }
 
@@ -1364,21 +1729,32 @@ error: "Gra nie jest w fazie rozgrywania."
 if (game.handFinished) {
     return {
         ok: false,
-        error: "Rozdanie już się zakończyło."
+        error:
+            "Rozdanie już się zakończyło."
     };
 }
 
-if (game.currentPlayer !== playerIndex) {
+if (
+    game.currentPlayer !==
+    playerIndex
+) {
     return {
         ok: false,
-        error: "Nie jest Twoja kolej."
+        error:
+            "Nie jest Twoja kolej."
     };
 }
 
-if (!isPlayerActive(game, playerIndex)) {
+if (
+    !isPlayerActive(
+        game,
+        playerIndex
+    )
+) {
     return {
         ok: false,
-        error: "Ten gracz nie bierze udziału w tej rozgrywce."
+        error:
+            "Ten gracz nie bierze udziału w tej rozgrywce."
     };
 }
 
@@ -1391,7 +1767,8 @@ if (
 ) {
     return {
         ok: false,
-        error: "Nie możesz zagrać tej karty."
+        error:
+            "Nie możesz zagrać tej karty."
     };
 }
 
@@ -1401,14 +1778,17 @@ const hand =
 const cardIndex =
     hand.findIndex(
         c =>
-            c.suit === card.suit &&
-            c.rank === card.rank
+            c.suit ===
+                card.suit &&
+            c.rank ===
+                card.rank
     );
 
 if (cardIndex === -1) {
     return {
         ok: false,
-        error: "Nie masz tej karty."
+        error:
+            "Nie masz tej karty."
     };
 }
 
@@ -1418,7 +1798,9 @@ const playedCard =
         1
     )[0];
 
-if (game.trick.length === 0) {
+if (
+    game.trick.length === 0
+) {
     checkMeld(
         game,
         playerIndex,
@@ -1439,9 +1821,14 @@ game.trick.push({
 });
 
 const expectedLength =
-    getExpectedTrickLength(game);
+    getExpectedTrickLength(
+        game
+    );
 
-if (game.trick.length < expectedLength) {
+if (
+    game.trick.length <
+    expectedLength
+) {
     game.currentPlayer =
         getNextActivePlayer(
             game,
@@ -1463,9 +1850,13 @@ if (
     game.mode === "lepsza" ||
     game.mode === "gorsza"
 ) {
-    finishSpecialTrick(game);
+    finishSpecialTrick(
+        game
+    );
 } else {
-    finishTrick(game);
+    finishTrick(
+        game
+    );
 }
 
 return {
@@ -1563,6 +1954,15 @@ playerIndex: index
     tricksWon:
         game.tricksWon,
 
+    specialCaught:
+        game.specialCaught,
+
+    specialSoloTricks:
+        game.specialSoloTricks,
+
+    specialOpponentTricks:
+        game.specialOpponentTricks,
+
     handFinished:
         game.handFinished,
 
@@ -1604,7 +2004,10 @@ playerIndex: index
 HELPERS
 ========================= */
 
-function getPlayerName(game, playerIndex) {
+function getPlayerName(
+game,
+playerIndex
+) {
 if (
 !game.players ||
 !game.players[playerIndex]
@@ -1614,8 +2017,12 @@ return "Gracz";
 
 ```
 return (
-    game.players[playerIndex].name ||
-    `Gracz ${playerIndex + 1}`
+    game.players[
+        playerIndex
+    ].name ||
+    `Gracz ${
+        playerIndex + 1
+    }`
 );
 ```
 
@@ -1627,12 +2034,15 @@ team
 ) {
 const teamPlayers =
 players.filter(
-p => p.team === team
+p =>
+p.team === team
 );
 
 ```
 if (!teamPlayers.length) {
-    return `Drużyna ${team + 1}`;
+    return `Drużyna ${
+        team + 1
+    }`;
 }
 
 return teamPlayers
@@ -1652,22 +2062,29 @@ function startNextHand(game) {
 if (!game.handFinished) {
 return {
 ok: false,
-error: "To rozdanie jeszcze się nie skończyło."
+error:
+"To rozdanie jeszcze się nie skończyło."
 };
 }
 
 ```
 game.chooser =
-    Number.isInteger(game.nextChooser)
+    Number.isInteger(
+        game.nextChooser
+    )
         ? game.nextChooser
         : (
-            (game.chooser + 1) % 4
+            (
+                game.chooser + 1
+            ) % 4
         );
 
 game.nextChooser =
     game.chooser;
 
-dealInitialCards(game);
+dealInitialCards(
+    game
+);
 
 return {
     ok: true
