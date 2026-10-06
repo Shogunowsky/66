@@ -1,4 +1,11 @@
 const SUITS = ["♥", "♦", "♣", "♠"];
+const SUIT_NAMES = {
+    "♥": "Czerwo",
+    "♦": "Dzwonek",
+    "♣": "Krzak",
+    "♠": "Wino"
+};
+
 const RANKS = ["A", "10", "K", "Q", "J", "9"];
 
 const CARD_VALUES = {
@@ -19,13 +26,6 @@ const RANK_POWER = {
     9: 1
 };
 
-const SUIT_NAMES = {
-    "♥": "Czerwo",
-    "♦": "Dzwonek",
-    "♣": "Krzak",
-    "♠": "Wino"
-};
-
 function createDeck() {
     const deck = [];
 
@@ -33,6 +33,7 @@ function createDeck() {
         for (const rank of RANKS) {
             deck.push({
                 suit,
+                suitName: SUIT_NAMES[suit],
                 rank,
                 value: CARD_VALUES[rank]
             });
@@ -43,45 +44,14 @@ function createDeck() {
 }
 
 function shuffle(deck) {
-    const result = [...deck];
-
-    for (let i = result.length - 1; i > 0; i--) {
+    for (let i = deck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
 
-        [result[i], result[j]] = [
-            result[j],
-            result[i]
-        ];
+        [deck[i], deck[j]] =
+            [deck[j], deck[i]];
     }
 
-    return result;
-}
-
-function getPlayerTeam(game, playerIndex) {
-    const player = game.players[playerIndex];
-
-    if (
-        player &&
-        (player.team === 0 || player.team === 1)
-    ) {
-        return player.team;
-    }
-
-    return playerIndex % 2;
-}
-
-function getTeamName(game, team) {
-    const players = game.players.filter(
-        player => player.team === team
-    );
-
-    if (players.length === 0) {
-        return `Drużyna ${team + 1}`;
-    }
-
-    return players
-        .map(player => player.name)
-        .join(" + ");
+    return deck;
 }
 
 function createGame(players) {
@@ -101,13 +71,9 @@ function createGame(players) {
 
         phase: "waiting",
 
-        /*
-         * Gracz rozpoczynający.
-         * Na razie zawsze pierwszy gracz.
-         */
-        leader: 0,
-
         currentPlayer: 0,
+
+        leader: 0,
 
         trick: [],
 
@@ -131,10 +97,6 @@ function createGame(players) {
             0
         ],
 
-        /*
-         * Meldunki nie są od razu dodawane
-         * do punktów gry.
-         */
         pendingMelds: [
             0,
             0
@@ -171,16 +133,18 @@ function dealInitialCards(game) {
 
     game.phase = "trump";
 
-    game.leader = 0;
+    game.handFinished = false;
 
-    game.currentPlayer = 0;
+    game.winner = null;
 
-    game.tricksWon = [
+    game.lastTrickWinner = null;
+
+    game.scores = [
         0,
         0
     ];
 
-    game.scores = [
+    game.tricksWon = [
         0,
         0
     ];
@@ -195,47 +159,42 @@ function dealInitialCards(game) {
         []
     ];
 
-    game.handFinished = false;
-
-    game.winner = null;
-
-    game.lastTrickWinner = null;
-
     /*
-     * Pierwsze 3 karty dla każdego.
+     * Każdy dostaje 3 karty.
      */
     for (let round = 0; round < 3; round++) {
         for (let player = 0; player < 4; player++) {
-            const card = game.deck.pop();
-
-            if (card) {
-                game.hands[player].push(card);
-            }
+            game.hands[player].push(
+                game.deck.pop()
+            );
         }
     }
 
+    /*
+     * Na początku obiera gracz 0.
+     */
+    game.currentPlayer = 0;
+    game.leader = 0;
+
     game.message =
-        `${game.players[game.currentPlayer]?.name || "Gracz"} obiera kolor.`;
+        `Gracz ${game.players[0]?.name || "1"} obiera kolor.`;
 }
 
 function dealRemainingCards(game) {
-    if (game.phase !== "trump") {
-        return {
-            ok: false,
-            error: "Pozostałe karty zostały już rozdane."
-        };
-    }
-
     /*
-     * Drugie 3 karty.
+     * Po obraniu koloru każdy dostaje
+     * kolejne 3 karty.
      */
     for (let round = 0; round < 3; round++) {
         for (let player = 0; player < 4; player++) {
-            const card = game.deck.pop();
 
-            if (card) {
-                game.hands[player].push(card);
+            if (game.deck.length === 0) {
+                break;
             }
+
+            game.hands[player].push(
+                game.deck.pop()
+            );
         }
     }
 
@@ -244,25 +203,21 @@ function dealRemainingCards(game) {
     game.currentPlayer = game.leader;
 
     game.message =
-        `${game.players[game.currentPlayer]?.name || "Gracz"} wychodzi.`;
-
-    return {
-        ok: true
-    };
+        `Wychodzi ${game.players[game.leader]?.name || "gracz"}.`;
 }
 
 function chooseTrump(game, playerIndex, trump) {
     if (game.phase !== "trump") {
         return {
             ok: false,
-            error: "Nie można teraz obierać koloru."
+            error: "Teraz nie można obierać koloru."
         };
     }
 
     if (game.currentPlayer !== playerIndex) {
         return {
             ok: false,
-            error: "To nie jest twój wybór."
+            error: "Nie jest Twoja kolej na obieranie."
         };
     }
 
@@ -276,511 +231,540 @@ function chooseTrump(game, playerIndex, trump) {
     game.trump = trump;
 
     game.message =
-        `${game.players[playerIndex]?.name || "Gracz"} obrał ${SUIT_NAMES[trump]}.`;
+        `Obrany kolor: ${SUIT_NAMES[trump]}.`;
 
     return {
         ok: true
     };
 }
 
-function cardEquals(a, b) {
-    if (!a || !b) {
-        return false;
-    }
+function cardBeats(cardA, cardB, leadSuit, trump) {
 
-    return (
-        a.suit === b.suit &&
-        a.rank === b.rank
-    );
-}
+    /*
+     * Zwraca true, jeżeli cardA bije cardB.
+     */
 
-function getLeadSuit(game) {
-    if (!game.trick.length) {
-        return null;
-    }
-
-    return game.trick[0].card.suit;
-}
-
-function canBeat(game, card, winningCard) {
-    if (!winningCard) {
-        return true;
+    if (cardA.suit === cardB.suit) {
+        return (
+            RANK_POWER[cardA.rank] >
+            RANK_POWER[cardB.rank]
+        );
     }
 
     /*
-     * Atut bije każdy nie-atut.
+     * Atut bije każdy nieatut.
      */
     if (
-        card.suit === game.trump &&
-        winningCard.suit !== game.trump
+        cardA.suit === trump &&
+        cardB.suit !== trump
     ) {
         return true;
     }
 
     if (
-        card.suit !== game.trump &&
-        winningCard.suit === game.trump
+        cardA.suit !== trump &&
+        cardB.suit === trump
     ) {
         return false;
     }
 
     /*
-     * Jeśli kolory są różne i żaden nie jest atutem,
-     * karta nie może bić zwycięskiej.
+     * Jeżeli oba nie są atutami,
+     * wygrywa kolor wyjścia.
      */
-    if (card.suit !== winningCard.suit) {
-        return false;
+    if (cardA.suit === leadSuit) {
+        return true;
     }
 
-    return (
-        RANK_POWER[card.rank] >
-        RANK_POWER[winningCard.rank]
-    );
+    return false;
 }
 
-function getWinningPlay(game) {
-    if (!game.trick.length) {
+function getWinningPlay(trick, game) {
+    if (!trick.length) {
         return null;
     }
 
-    let winning = game.trick[0];
+    const leadSuit = trick[0].card.suit;
 
-    for (let i = 1; i < game.trick.length; i++) {
-        const candidate = game.trick[i];
+    let winner = trick[0];
+
+    for (let i = 1; i < trick.length; i++) {
+
+        const candidate = trick[i];
 
         if (
-            canBeat(
-                game,
+            cardBeats(
                 candidate.card,
-                winning.card
+                winner.card,
+                leadSuit,
+                game.trump
             )
         ) {
-            winning = candidate;
+            winner = candidate;
         }
     }
 
-    return winning;
+    return winner;
 }
 
 function isLegalPlay(game, playerIndex, card) {
     if (game.phase !== "playing") {
-        return {
-            ok: false,
-            error: "Gra nie jest teraz w fazie zagrywania."
-        };
+        return false;
     }
 
     if (game.currentPlayer !== playerIndex) {
-        return {
-            ok: false,
-            error: "Teraz gra inny gracz."
-        };
+        return false;
     }
 
-    const hand = game.hands[playerIndex] || [];
+    const hand = game.hands[playerIndex];
 
-    const selected = hand.find(
-        handCard => cardEquals(handCard, card)
+    const cardInHand = hand.find(
+        c =>
+            c.suit === card.suit &&
+            c.rank === card.rank
     );
 
-    if (!selected) {
-        return {
-            ok: false,
-            error: "Nie masz tej karty."
-        };
+    if (!cardInHand) {
+        return false;
     }
 
     /*
-     * Pierwsza karta lewy.
+     * Jeżeli jesteśmy pierwszym graczem
+     * w sztychu, można zagrać dowolną kartę.
      */
     if (game.trick.length === 0) {
-        return {
-            ok: true
-        };
+        return true;
     }
 
-    const leadSuit = getLeadSuit(game);
+    const leadSuit =
+        game.trick[0].card.suit;
 
-    /*
-     * Jeśli mamy kolor wyjścia,
-     * MUSIMY nim zagrać.
-     */
-    const cardsOfLeadSuit = hand.filter(
-        handCard => handCard.suit === leadSuit
-    );
-
-    if (
-        cardsOfLeadSuit.length > 0 &&
-        selected.suit !== leadSuit
-    ) {
-        return {
-            ok: false,
-            error: `Musisz zagrać ${SUIT_NAMES[leadSuit]}.`
-        };
-    }
-
-    /*
-     * Jeśli możemy przebić aktualnego zwycięzcę,
-     * musimy przebić.
-     */
-    const winningPlay = getWinningPlay(game);
-
-    if (
-        selected.suit === leadSuit &&
-        winningPlay &&
-        winningPlay.card.suit === leadSuit
-    ) {
-        const canBeatWinning = canBeat(
-            game,
-            selected,
-            winningPlay.card
+    const hasLeadSuit =
+        hand.some(
+            c => c.suit === leadSuit
         );
 
-        if (!canBeatWinning) {
-            /*
-             * Nie musi bić, jeśli nie jest w stanie.
-             */
-            const canAnyCardOfLeadSuitBeat =
-                cardsOfLeadSuit.some(card =>
-                    canBeat(
-                        game,
-                        card,
-                        winningPlay.card
-                    )
-                );
+    /*
+     * Nie masz koloru wyjścia.
+     * Możesz zagrać dowolną kartę.
+     */
+    if (!hasLeadSuit) {
+        return true;
+    }
 
-            if (canAnyCardOfLeadSuitBeat) {
-                return {
-                    ok: false,
-                    error: "Jeśli możesz przebić, musisz przebić."
-                };
+    /*
+     * Musisz grać kolorem wyjścia.
+     */
+    if (card.suit !== leadSuit) {
+        return false;
+    }
+
+    /*
+     * Sprawdzamy, czy aktualnie można
+     * przebić zwycięską kartę.
+     */
+    const winningPlay =
+        getWinningPlay(
+            game.trick,
+            game
+        );
+
+    const canBeat =
+        hand.some(otherCard => {
+
+            if (otherCard.suit !== leadSuit) {
+                return false;
             }
-        }
+
+            return cardBeats(
+                otherCard,
+                winningPlay.card,
+                leadSuit,
+                game.trump
+            );
+        });
+
+    /*
+     * Jeżeli można przebić,
+     * gracz MUSI przebić.
+     */
+    if (canBeat) {
+        return cardBeats(
+            card,
+            winningPlay.card,
+            leadSuit,
+            game.trump
+        );
     }
 
     /*
-     * Jeśli aktualnie wygrywa atut i mamy wyższy atut,
-     * musimy go użyć.
+     * Nie można przebić — można zagrać
+     * dowolną kartę w kolorze wyjścia.
      */
-    if (
-        winningPlay &&
-        winningPlay.card.suit === game.trump &&
-        selected.suit === game.trump
-    ) {
-        const higherTrumpExists = hand.some(card =>
-            card.suit === game.trump &&
-            canBeat(
-                game,
-                card,
-                winningPlay.card
-            )
-        );
-
-        if (
-            higherTrumpExists &&
-            !canBeat(
-                game,
-                selected,
-                winningPlay.card
-            )
-        ) {
-            return {
-                ok: false,
-                error: "Musisz przebić wyższym atutem."
-            };
-        }
-    }
-
-    return {
-        ok: true
-    };
+    return true;
 }
 
 function checkMeld(game, playerIndex, card) {
     /*
-     * Meldujemy tylko przy wyjściu DAMĄ.
+     * Meldujemy tylko wtedy, gdy wychodzi DAMA
+     * i gracz ma KRÓLA tego samego koloru.
      */
+
     if (card.rank !== "Q") {
-        return 0;
-    }
-
-    const hand = game.hands[playerIndex] || [];
-
-    const hasKing = hand.some(
-        handCard =>
-            handCard.rank === "K" &&
-            handCard.suit === card.suit
-    );
-
-    if (!hasKing) {
-        return 0;
-    }
-
-    if (card.suit === game.trump) {
-        return 40;
-    }
-
-    return 20;
-}
-
-function confirmPendingMelds(game, team) {
-    if (!game.pendingMelds[team]) {
         return;
     }
 
-    game.scores[team] +=
+    const hand = game.hands[playerIndex];
+
+    const hasKing = hand.some(
+        c =>
+            c.suit === card.suit &&
+            c.rank === "K"
+    );
+
+    if (!hasKing) {
+        return;
+    }
+
+    const team =
+        game.players[playerIndex].team;
+
+    if (team !== 0 && team !== 1) {
+        return;
+    }
+
+    const points =
+        card.suit === game.trump
+            ? 40
+            : 20;
+
+    /*
+     * Punkty są PENDING.
+     * Nie doliczamy ich jeszcze do wyniku.
+     */
+    game.pendingMelds[team] += points;
+
+    if (
+        !game.pendingMeldPlayers[team]
+            .includes(playerIndex)
+    ) {
+        game.pendingMeldPlayers[team].push(
+            playerIndex
+        );
+    }
+
+    game.message =
+        `${game.players[playerIndex].name} melduje ${points} punktów.`;
+}
+
+function confirmPendingMeld(game, team) {
+    if (game.pendingMelds[team] <= 0) {
+        return;
+    }
+
+    const points =
         game.pendingMelds[team];
+
+    game.scores[team] += points;
 
     game.pendingMelds[team] = 0;
 
     game.pendingMeldPlayers[team] = [];
+
+    game.message =
+        `Meld zaliczony: +${points} punktów.`;
 }
 
 function finishTrick(game) {
-    const winningPlay = getWinningPlay(game);
+    const winningPlay =
+        getWinningPlay(
+            game.trick,
+            game
+        );
 
     if (!winningPlay) {
         return;
     }
 
-    const winner = winningPlay.playerIndex;
+    const winnerIndex =
+        winningPlay.playerIndex;
 
     const winnerTeam =
-        getPlayerTeam(game, winner);
+        game.players[winnerIndex].team;
 
+    /*
+     * Punkty za karty.
+     */
     let trickPoints = 0;
 
     for (const play of game.trick) {
         trickPoints += play.card.value;
     }
 
-    game.scores[winnerTeam] += trickPoints;
+    game.scores[winnerTeam] +=
+        trickPoints;
 
     game.tricksWon[winnerTeam]++;
 
     /*
-     * Dopiero jeśli drużyna wygra sztycha,
-     * wcześniej zgłoszony meldunek zostaje zaliczony.
+     * Dopiero po wygraniu sztycha
+     * potwierdzamy oczekujący meldunek.
      */
-    confirmPendingMelds(
+    confirmPendingMeld(
         game,
         winnerTeam
     );
 
-    game.lastTrickWinner = winner;
+    game.lastTrickWinner =
+        winnerIndex;
+
+    game.leader =
+        winnerIndex;
+
+    game.currentPlayer =
+        winnerIndex;
 
     game.trick = [];
 
-    game.currentPlayer = winner;
+    check66(game);
+
+    if (game.handFinished) {
+        return;
+    }
 
     game.message =
-        `${game.players[winner]?.name || "Gracz"} bierze sztycha.`;
-
-    check66(game);
+        `${game.players[winnerIndex].name} bierze sztycha i wychodzi.`;
 }
 
 function check66(game) {
+
     for (let team = 0; team < 2; team++) {
+
         if (game.scores[team] >= 66) {
+
             game.handFinished = true;
 
             game.winner = team;
 
-            /*
-             * Punkty gry przechodzą do punktów ogólnych.
-             */
+            game.phase = "finished";
+
             game.overallScores[team] +=
                 game.scores[team];
 
             game.gameWins[team]++;
 
             game.message =
-                `${getTeamName(game, team)} zdobywa 66 punktów!`;
+                `${game.players.find(
+                    p => p.team === team
+                )?.name || "Drużyna"} zdobywa 66 punktów!`;
 
-            game.phase = "finished";
-
-            return true;
+            return;
         }
     }
-
-    return false;
 }
 
 function playCard(game, playerIndex, card) {
-    if (game.handFinished) {
+
+    if (game.phase !== "playing") {
         return {
             ok: false,
-            error: "Ta partia już się skończyła."
+            error: "Gra nie jest w fazie rozgrywania."
         };
     }
 
-    const legal = isLegalPlay(
+    if (game.handFinished) {
+        return {
+            ok: false,
+            error: "Rozdanie już się zakończyło."
+        };
+    }
+
+    if (
+        game.currentPlayer !== playerIndex
+    ) {
+        return {
+            ok: false,
+            error: "Nie jest Twoja kolej."
+        };
+    }
+
+    if (!isLegalPlay(
         game,
         playerIndex,
         card
-    );
-
-    if (!legal.ok) {
-        return legal;
+    )) {
+        return {
+            ok: false,
+            error: "Nie możesz zagrać tej karty."
+        };
     }
 
-    const hand = game.hands[playerIndex];
+    const hand =
+        game.hands[playerIndex];
 
-    const cardIndex = hand.findIndex(
-        handCard => cardEquals(handCard, card)
-    );
+    const cardIndex =
+        hand.findIndex(
+            c =>
+                c.suit === card.suit &&
+                c.rank === card.rank
+        );
 
     if (cardIndex === -1) {
         return {
             ok: false,
-            error: "Nie znaleziono karty."
+            error: "Nie masz tej karty."
         };
     }
 
-    const playedCard = hand.splice(
-        cardIndex,
-        1
-    )[0];
+    const playedCard =
+        hand.splice(
+            cardIndex,
+            1
+        )[0];
 
     /*
-     * Jeśli gracz wychodzi damą,
-     * sprawdzamy meldunek.
+     * Meld sprawdzamy tylko przy wyjściu.
      */
     if (game.trick.length === 0) {
-        const meldPoints = checkMeld(
+        checkMeld(
             game,
             playerIndex,
             playedCard
         );
-
-        if (meldPoints > 0) {
-            const team =
-                getPlayerTeam(
-                    game,
-                    playerIndex
-                );
-
-            game.pendingMelds[team] +=
-                meldPoints;
-
-            game.pendingMeldPlayers[team].push(
-                playerIndex
-            );
-
-            game.message =
-                `${game.players[playerIndex]?.name || "Gracz"} melduje ${meldPoints} punktów.`;
-        }
     }
 
     game.trick.push({
         playerIndex,
+        playerName:
+            game.players[playerIndex].name,
         card: playedCard
     });
 
     /*
-     * Jeśli wszyscy zagrali,
-     * rozliczamy sztycha.
+     * Jeszcze nie koniec sztycha.
      */
-    if (game.trick.length === 4) {
-        finishTrick(game);
-    } else {
+    if (game.trick.length < 4) {
+
         game.currentPlayer =
             (playerIndex + 1) % 4;
 
-        if (!game.handFinished) {
-            game.message =
-                `${game.players[game.currentPlayer]?.name || "Gracz"} gra.`;
-        }
+        return {
+            ok: true
+        };
     }
 
+    /*
+     * Czwarta karta — rozstrzygamy sztych.
+     */
+    finishTrick(game);
+
     return {
-        ok: true,
-        card: playedCard
+        ok: true
     };
 }
 
 function getGameState(game) {
-    return {
-        players: game.players.map(player => ({
-            name: player.name,
-            isBot: !!player.isBot,
-            team: player.team
-        })),
 
-        playerNames: game.players.map(
-            player => player.name
+    return {
+        players: game.players.map(
+            p => ({
+                name: p.name,
+                team: p.team,
+                isBot: !!p.isBot
+            })
         ),
+
+        playerNames:
+            game.players.map(
+                p => p.name
+            ),
 
         trump: game.trump,
 
         suitNames: SUIT_NAMES,
 
-        currentPlayer: game.currentPlayer,
+        currentPlayer:
+            game.currentPlayer,
 
-        leader: game.leader,
+        leader:
+            game.leader,
 
-        trick: game.trick.map(play => ({
-            playerIndex: play.playerIndex,
-            card: play.card
-        })),
+        trick:
+            game.trick,
 
-        scores: [
-            ...game.scores
-        ],
+        scores:
+            game.scores,
 
-        overallScores: [
-            ...game.overallScores
-        ],
+        overallScores:
+            game.overallScores,
 
-        gameWins: [
-            ...game.gameWins
-        ],
+        gameWins:
+            game.gameWins,
 
-        pendingMelds: [
-            ...game.pendingMelds
-        ],
+        pendingMelds:
+            game.pendingMelds,
 
-        tricksWon: [
-            ...game.tricksWon
-        ],
+        tricksWon:
+            game.tricksWon,
 
-        handFinished: game.handFinished,
+        handFinished:
+            game.handFinished,
 
-        winner: game.winner,
+        winner:
+            game.winner,
 
         lastTrickWinner:
             game.lastTrickWinner,
 
-        phase: game.phase,
+        phase:
+            game.phase,
 
-        message: game.message,
+        message:
+            game.message,
 
         teamNames: [
-            getTeamName(game, 0),
-            getTeamName(game, 1)
+            getTeamNameFromPlayers(
+                game.players,
+                0
+            ),
+            getTeamNameFromPlayers(
+                game.players,
+                1
+            )
         ]
     };
 }
 
+function getTeamNameFromPlayers(
+    players,
+    team
+) {
+    const teamPlayers =
+        players.filter(
+            p => p.team === team
+        );
+
+    if (!teamPlayers.length) {
+        return `Drużyna ${team + 1}`;
+    }
+
+    return teamPlayers
+        .map(p => p.name)
+        .join(" + ");
+}
+
 module.exports = {
     SUITS,
+    SUIT_NAMES,
     RANKS,
     CARD_VALUES,
-    RANK_POWER,
-    SUIT_NAMES,
-
     createDeck,
     shuffle,
-
     createGame,
     dealInitialCards,
     dealRemainingCards,
-
     chooseTrump,
-
     isLegalPlay,
     playCard,
-
-    getGameState,
-    getPlayerTeam
+    getGameState
 };
