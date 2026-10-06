@@ -1,21 +1,19 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const path = require("path");
 
 const {
-    createGame,
-    dealCards,
-    chooseTrump,
-    getGameState
+  createGame,
+  dealInitialCards,
+  chooseTrump,
+  playCard,
+  getGameState
 } = require("./game");
 
 const {
-    fillBots,
-    isBot,
-    chooseBotTrump,
-    chooseBotCard,
-    removeCardFromBot
+  fillBots,
+  chooseBotTrump,
+  chooseBotCard
 } = require("./bot");
 
 const app = express();
@@ -24,542 +22,434 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
-app.use(express.static(path.join(__dirname, "../client")));
+app.use(express.static("client"));
 
-app.get("/", (req, res) => {
-    res.sendFile(
-        path.join(__dirname, "../client/index.html")
+const rooms = {};
+
+function createRoom(roomCode) {
+  rooms[roomCode] = {
+    players: [],
+    game: null,
+    started: false
+  };
+
+  return rooms[roomCode];
+}
+
+function getRoom(roomCode) {
+  if (!rooms[roomCode]) {
+    createRoom(roomCode);
+  }
+
+  return rooms[roomCode];
+}
+
+function getPublicPlayers(room) {
+  return room.players.map((player, index) => ({
+    seat: index,
+    name: player.name,
+    bot: player.bot
+  }));
+}
+
+function sendLobby(roomCode) {
+  const room = rooms[roomCode];
+
+  if (!room) {
+    return;
+  }
+
+  io.to(roomCode).emit("lobbyState", {
+    room: roomCode,
+    players: getPublicPlayers(room)
+  });
+}
+
+function sendGameState(roomCode) {
+  const room = rooms[roomCode];
+
+  if (!room || !room.game) {
+    return;
+  }
+
+  for (const player of room.players) {
+    if (player.bot) {
+      continue;
+    }
+
+    io.to(player.id).emit(
+      "gameState",
+      getGameState(room.game, player.seat)
     );
-});
-
-const rooms = new Map();
-
-
-function createRoom(roomId) {
-
-    return {
-        id: roomId,
-        players: [],
-        game: null,
-        started: false
-    };
+  }
 }
 
+function startGame(roomCode) {
+  const room = rooms[roomCode];
 
-function getRoom(roomId) {
+  if (!room || room.started) {
+    return;
+  }
 
-    if (!rooms.has(roomId)) {
-        rooms.set(roomId, createRoom(roomId));
-    }
+  room.started = true;
 
-    return rooms.get(roomId);
+  // Uzupełniamy wolne miejsca botami.
+  fillBots(room.players);
+
+  // Pierwszy pytający = pierwszy gracz przy stole.
+  const firstChooser = 0;
+
+  room.game = createGame(
+    room.players,
+    firstChooser
+  );
+
+  dealInitialCards(room.game);
+
+  sendGameState(roomCode);
+
+  processBots(roomCode);
 }
 
+function chooseTrumpForBot(roomCode) {
+  const room = rooms[roomCode];
 
-/* =========================
-   START GRY
-========================= */
+  if (!room || !room.game) {
+    return;
+  }
 
-function startGame(room) {
+  const game = room.game;
 
-    if (room.started) {
-        return;
-    }
+  if (game.phase !== "trump") {
+    return;
+  }
 
-    if (room.players.length < 1) {
-        return;
-    }
+  const player = room.players[game.currentPlayer];
 
-    const playersWithBots =
-        fillBots(room.players, 4);
+  if (!player || !player.bot) {
+    return;
+  }
 
-    room.game =
-        createGame(playersWithBots);
+  const suit = chooseBotTrump(
+    game,
+    game.currentPlayer
+  );
 
-    room.started = true;
+  chooseTrump(
+    game,
+    game.currentPlayer,
+    suit
+  );
 
-    /*
-        Na początek rozdanie 3 kart.
-        Resztę zasad będziemy dodawać
-        po kolei.
-    */
+  sendGameState(roomCode);
 
-    dealCards(room.game, 3);
-
-    room.game.phase = "trump";
-
-    /*
-        Na start pyta pierwszy gracz.
-        Później ustawimy dokładne zasady
-        wyboru atu.
-    */
-
-    room.game.currentPlayer =
-        room.game.players[0].id;
-
-    sendGameState(room);
-
-    runBotIfNeeded(room);
+  processBots(roomCode);
 }
 
+function playBotCard(roomCode) {
+  const room = rooms[roomCode];
 
-/* =========================
-   STAN GRY
-========================= */
+  if (!room || !room.game) {
+    return;
+  }
 
-function sendGameState(room) {
+  const game = room.game;
 
-    if (!room.game) {
-        return;
-    }
+  if (game.phase !== "playing") {
+    return;
+  }
 
-    const state =
-        getGameState(room.game);
+  const player = room.players[game.currentPlayer];
 
-    for (const player of room.players) {
+  if (!player || !player.bot) {
+    return;
+  }
 
-        const playerState =
-            JSON.parse(
-                JSON.stringify(state)
-            );
+  const cardId = chooseBotCard(
+    game,
+    game.currentPlayer
+  );
 
-        /*
-            Każdy człowiek widzi
-            tylko własne karty.
-        */
+  if (!cardId) {
+    return;
+  }
 
-        playerState.players =
-            playerState.players.map(p => {
+  const result = playCard(
+    game,
+    game.currentPlayer,
+    cardId
+  );
 
-                if (p.id === player.id) {
-                    return p;
-                }
+  if (!result.ok) {
+    console.log(
+      "Bot nie mógł zagrać:",
+      result.error
+    );
 
-                return {
-                    ...p,
-                    hand: p.hand.map(() => ({
-                        hidden: true
-                    }))
-                };
-            });
+    return;
+  }
 
-        io.to(player.id)
-            .emit("gameState", playerState);
-    }
+  sendGameState(roomCode);
+
+  processBots(roomCode);
 }
 
+function processBots(roomCode) {
+  const room = rooms[roomCode];
 
-/* =========================
-   BOT
-========================= */
+  if (!room || !room.game) {
+    return;
+  }
 
-function runBotIfNeeded(room) {
+  const game = room.game;
 
-    if (!room.game) {
-        return;
+  if (game.phase === "finished") {
+    sendGameState(roomCode);
+    return;
+  }
+
+  const currentPlayer =
+    room.players[game.currentPlayer];
+
+  if (!currentPlayer || !currentPlayer.bot) {
+    return;
+  }
+
+  setTimeout(() => {
+    const latestRoom = rooms[roomCode];
+
+    if (!latestRoom || !latestRoom.game) {
+      return;
     }
 
-    const currentId =
-        room.game.currentPlayer;
+    const latestGame = latestRoom.game;
 
-    const bot =
-        room.game.players.find(
-            p => p.id === currentId
-        );
+    const latestPlayer =
+      latestRoom.players[
+        latestGame.currentPlayer
+      ];
 
-    if (!bot || !isBot(bot)) {
-        return;
+    if (!latestPlayer || !latestPlayer.bot) {
+      return;
     }
 
-    setTimeout(() => {
+    if (latestGame.phase === "trump") {
+      chooseTrumpForBot(roomCode);
+      return;
+    }
 
-        if (!room.game) {
-            return;
-        }
-
-        if (room.game.phase === "trump") {
-
-            const trump =
-                chooseBotTrump(
-                    room.game,
-                    bot
-                );
-
-            chooseTrump(
-                room.game,
-                trump
-            );
-
-            room.game.phase = "playing";
-
-            room.game.currentPlayer =
-                getNextPlayer(
-                    room.game,
-                    bot.seat
-                );
-
-            sendGameState(room);
-
-            runBotIfNeeded(room);
-
-            return;
-        }
-
-        if (room.game.phase === "playing") {
-
-            const card =
-                chooseBotCard(
-                    room.game,
-                    bot
-                );
-
-            if (!card) {
-                return;
-            }
-
-            removeCardFromBot(
-                bot,
-                card
-            );
-
-            room.game.trick.push({
-                playerId: bot.id,
-                seat: bot.seat,
-                card
-            });
-
-            /*
-                Na tym etapie tylko pokazujemy
-                zagraną kartę.
-                Pełne zasady lew dodamy później.
-            */
-
-            if (room.game.trick.length >= 4) {
-
-                room.game.trick = [];
-
-            }
-
-            room.game.currentPlayer =
-                getNextPlayer(
-                    room.game,
-                    bot.seat
-                );
-
-            sendGameState(room);
-
-            runBotIfNeeded(room);
-        }
-
-    }, 800);
+    if (latestGame.phase === "playing") {
+      playBotCard(roomCode);
+    }
+  }, 700);
 }
-
-
-/* =========================
-   NASTĘPNY GRACZ
-========================= */
-
-function getNextPlayer(game, seat) {
-
-    const nextSeat =
-        (seat + 1) % 4;
-
-    const player =
-        game.players.find(
-            p => p.seat === nextSeat
-        );
-
-    return player
-        ? player.id
-        : null;
-}
-
-
-/* =========================
-   SOCKET
-========================= */
 
 io.on("connection", socket => {
-
-    console.log(
-        "Połączono:",
-        socket.id
-    );
-
-
-    socket.on(
-        "joinRoom",
-        ({ roomId, nickname }) => {
-
-            if (!roomId || !nickname) {
-
-                socket.emit(
-                    "errorMessage",
-                    "Brakuje nazwy pokoju lub nicku."
-                );
-
-                return;
-            }
-
-            const room =
-                getRoom(roomId);
-
-
-            if (room.started) {
-
-                socket.emit(
-                    "errorMessage",
-                    "Ta gra już się rozpoczęła."
-                );
-
-                return;
-            }
-
-
-            if (room.players.length >= 4) {
-
-                socket.emit("roomFull");
-
-                return;
-            }
-
-
-            const player = {
-
-                id: socket.id,
-
-                nickname:
-                    nickname
-                        .trim()
-                        .slice(0, 20),
-
-                seat:
-                    room.players.length
-            };
-
-
-            room.players.push(player);
-
-            socket.join(roomId);
-
-            socket.roomId =
-                roomId;
-
-
-            console.log(
-                `${player.nickname} dołączył do pokoju ${roomId}`
-            );
-
-
-            io.to(roomId).emit(
-                "roomUpdate",
-                {
-                    roomId: room.id,
-                    players: room.players
-                }
-            );
-
-
-            /*
-                Na potrzeby pierwszego testu
-                gra startuje od razu po dołączeniu
-                pierwszego gracza i uzupełnia resztę botami.
-            */
-
-            if (room.players.length === 1) {
-
-                setTimeout(() => {
-
-                    if (
-                        room.players.length > 0 &&
-                        !room.started
-                    ) {
-                        startGame(room);
-                    }
-
-                }, 1500);
-            }
-        }
-    );
-
-
-    /* =========================
-       ZAGRANIE KARTY
-    ========================= */
-
-    socket.on(
-        "playCard",
-        ({ roomId, cardIndex }) => {
-
-            const room =
-                rooms.get(roomId);
-
-            if (!room || !room.game) {
-                return;
-            }
-
-            const game =
-                room.game;
-
-            if (
-                game.currentPlayer !==
-                socket.id
-            ) {
-                return;
-            }
-
-            if (
-                game.phase !==
-                "playing"
-            ) {
-                return;
-            }
-
-            const player =
-                game.players.find(
-                    p => p.id === socket.id
-                );
-
-            if (!player) {
-                return;
-            }
-
-            const card =
-                player.hand[cardIndex];
-
-            if (!card) {
-                return;
-            }
-
-            player.hand.splice(
-                cardIndex,
-                1
-            );
-
-            game.trick.push({
-                playerId: player.id,
-                seat: player.seat,
-                card
-            });
-
-            if (
-                game.trick.length >= 4
-            ) {
-
-                game.trick = [];
-
-            }
-
-            game.currentPlayer =
-                getNextPlayer(
-                    game,
-                    player.seat
-                );
-
-            sendGameState(room);
-
-            runBotIfNeeded(room);
-        }
-    );
-
-
-    /* =========================
-       OPUSZCZENIE
-    ========================= */
-
-    socket.on(
-        "leaveRoom",
-        () => {
-
-            removePlayer(socket);
-        }
-    );
-
-
-    socket.on(
-        "disconnect",
-        () => {
-
-            console.log(
-                "Rozłączono:",
-                socket.id
-            );
-
-            removePlayer(socket);
-        }
-    );
-});
-
-
-/* =========================
-   USUWANIE GRACZA
-========================= */
-
-function removePlayer(socket) {
-
-    const roomId =
-        socket.roomId;
-
-    if (
-        !roomId ||
-        !rooms.has(roomId)
-    ) {
-        return;
+  console.log(
+    "Nowe połączenie:",
+    socket.id
+  );
+
+  socket.on("joinRoom", data => {
+    const nickname =
+      String(data?.nickname || "Gracz")
+        .trim()
+        .slice(0, 20);
+
+    const roomCode =
+      String(data?.room || "TEST")
+        .trim()
+        .toUpperCase()
+        .slice(0, 20);
+
+    const room = getRoom(roomCode);
+
+    if (room.started) {
+      socket.emit("joinError", {
+        message: "Ta gra już się rozpoczęła."
+      });
+
+      return;
     }
 
-    const room =
-        rooms.get(roomId);
+    if (room.players.length >= 4) {
+      socket.emit("joinError", {
+        message: "Pokój jest pełny."
+      });
+
+      return;
+    }
+
+    const seat = room.players.length;
+
+    room.players.push({
+      id: socket.id,
+      name: nickname,
+      seat,
+      bot: false
+    });
+
+    socket.join(roomCode);
+
+    socket.data.roomCode = roomCode;
+    socket.data.seat = seat;
+
+    socket.emit("joinedRoom", {
+      room: roomCode,
+      seat
+    });
+
+    sendLobby(roomCode);
+
+    /*
+     * Na razie po dołączeniu pierwszego gracza
+     * uruchamiamy grę po krótkiej chwili,
+     * uzupełniając resztę botami.
+     *
+     * Później możemy zrobić normalną poczekalnię
+     * dla 4 prawdziwych graczy.
+     */
+    if (room.players.length === 1) {
+      setTimeout(() => {
+        if (
+          rooms[roomCode] &&
+          !rooms[roomCode].started
+        ) {
+          startGame(roomCode);
+        }
+      }, 1500);
+    }
+  });
+
+  socket.on("chooseTrump", data => {
+    const roomCode =
+      socket.data.roomCode;
+
+    const seat =
+      socket.data.seat;
+
+    const room = rooms[roomCode];
+
+    if (!room || !room.game) {
+      return;
+    }
+
+    const result = chooseTrump(
+      room.game,
+      seat,
+      data?.suit
+    );
+
+    if (!result.ok) {
+      socket.emit("gameError", {
+        message: result.error
+      });
+
+      return;
+    }
+
+    sendGameState(roomCode);
+
+    processBots(roomCode);
+  });
+
+  socket.on("playCard", data => {
+    const roomCode =
+      socket.data.roomCode;
+
+    const seat =
+      socket.data.seat;
+
+    const room = rooms[roomCode];
+
+    if (!room || !room.game) {
+      return;
+    }
+
+    const result = playCard(
+      room.game,
+      seat,
+      data?.cardId
+    );
+
+    if (!result.ok) {
+      socket.emit("gameError", {
+        message: result.error
+      });
+
+      return;
+    }
+
+    sendGameState(roomCode);
+
+    processBots(roomCode);
+  });
+
+  socket.on("leaveRoom", () => {
+    const roomCode =
+      socket.data.roomCode;
+
+    if (!roomCode) {
+      return;
+    }
+
+    const room = rooms[roomCode];
+
+    if (!room) {
+      return;
+    }
 
     room.players =
-        room.players.filter(
-            p => p.id !== socket.id
-        );
+      room.players.filter(
+        player =>
+          player.id !== socket.id
+      );
 
+    socket.leave(roomCode);
 
-    if (
-        room.players.length === 0
-    ) {
-
-        rooms.delete(roomId);
-
-        console.log(
-            `Usunięto pusty pokój ${roomId}`
-        );
-
-        return;
+    if (room.players.length === 0) {
+      delete rooms[roomCode];
+      return;
     }
-
 
     if (!room.started) {
-
-        room.players.forEach(
-            (player, index) => {
-                player.seat = index;
-            }
-        );
-
-        io.to(roomId).emit(
-            "roomUpdate",
-            {
-                roomId: room.id,
-                players: room.players
-            }
-        );
+      sendLobby(roomCode);
     }
-}
+  });
 
+  socket.on("disconnect", () => {
+    const roomCode =
+      socket.data.roomCode;
 
-/* =========================
-   START SERWERA
-========================= */
-
-server.listen(
-    PORT,
-    () => {
-
-        console.log(
-            `Sznaps działa na porcie ${PORT}`
-        );
-
+    if (!roomCode) {
+      return;
     }
-);
+
+    const room = rooms[roomCode];
+
+    if (!room) {
+      return;
+    }
+
+    room.players =
+      room.players.filter(
+        player =>
+          player.id !== socket.id
+      );
+
+    if (room.players.length === 0) {
+      delete rooms[roomCode];
+      return;
+    }
+
+    if (!room.started) {
+      sendLobby(roomCode);
+    }
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(
+    `Sznaps działa na porcie ${PORT}`
+  );
+});
