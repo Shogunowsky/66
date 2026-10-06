@@ -1,261 +1,268 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
+    <title>Sznaps</title>
 
-  <title>Sznaps</title>
-
-  <link
-    rel="icon"
-    href="/favicon.ico"
-  >
-
-  <link
-    rel="preconnect"
-    href="https://fonts.googleapis.com"
-  >
-
-  <link
-    rel="preconnect"
-    href="https://fonts.gstatic.com"
-    crossorigin
-  >
-
-  <link
-    href="https://fonts.googleapis.com/css2?family=Alumni+Sans+SC:wght@400;500;600;700&display=swap"
-    rel="stylesheet"
-  >
-
-  <link
-    rel="stylesheet"
-    href="/style.css"
-  >
+    <link rel="stylesheet" href="/style.css">
 </head>
 
 <body>
 
-  <!-- ========================= -->
-  <!-- EKRAN STARTOWY -->
-  <!-- ========================= -->
+    <!-- =========================
+         EKRAN STARTOWY
+    ========================== -->
 
-  <section
-    id="startScreen"
-    class="screen"
-  >
+    <section id="startScreen" class="screen">
 
-    <div class="start-box">
+        <div class="start-box">
 
-      <h1>SZNAPS</h1>
+            <h1>⛏️ SZNAPS</h1>
 
-      <p class="subtitle">
-        Gra karciana
-      </p>
+            <p>Gra karciana spod ziemi</p>
 
-      <label for="nickname">
-        Twój nick
-      </label>
+            <input
+                id="nickname"
+                type="text"
+                maxlength="20"
+                placeholder="Twój pseudonim"
+                autocomplete="off"
+            >
 
-      <input
-        id="nickname"
-        type="text"
-        maxlength="20"
-        placeholder="Wpisz nick"
-        autocomplete="off"
-      >
+            <input
+                id="room"
+                type="text"
+                maxlength="20"
+                placeholder="Pokój"
+                autocomplete="off"
+            >
 
-      <label for="room">
-        Pokój
-      </label>
+            <button id="joinButton" type="button">
+                WEJDŹ DO GRY
+            </button>
 
-      <input
-        id="room"
-        type="text"
-        maxlength="20"
-        placeholder="np. KOPALNIA"
-        autocomplete="off"
-      >
-
-      <button
-        id="joinButton"
-        class="main-button"
-      >
-        WEJDŹ DO GRY
-      </button>
-
-    </div>
-
-  </section>
-
-
-  <!-- ========================= -->
-  <!-- POCZEKALNIA -->
-  <!-- ========================= -->
-
-  <section
-    id="lobbyScreen"
-    class="screen"
-    style="display: none;"
-  >
-
-    <div class="lobby-box">
-
-      <h2>SZNAPS</h2>
-
-      <div
-        id="lobbyRoom"
-        class="room-code"
-      >
-        Pokój
-      </div>
-
-      <div
-        id="lobbyPlayers"
-        class="lobby-players"
-      ></div>
-
-      <p class="lobby-info">
-        Gra rozpocznie się automatycznie.
-      </p>
-
-      <button
-        id="leaveButton"
-        class="secondary-button"
-      >
-        WYJDŹ
-      </button>
-
-    </div>
-
-  </section>
-
-
-  <!-- ========================= -->
-  <!-- EKRAN GRY -->
-  <!-- ========================= -->
-
-  <section
-    id="gameScreen"
-    class="game-screen"
-    style="display: none;"
-  >
-
-    <!-- GÓRA -->
-
-    <header class="game-header">
-
-      <div class="game-title">
-        SZNAPS
-      </div>
-
-      <div
-        id="trumpDisplay"
-        class="trump-display"
-      >
-        Atu: —
-      </div>
-
-      <div class="score-board">
-
-        <div class="score-team">
-          <span>Drużyna 1</span>
-          <strong id="scoreTeam1">
-            0
-          </strong>
         </div>
-
-        <div class="score-team">
-          <span>Drużyna 2</span>
-          <strong id="scoreTeam2">
-            0
-          </strong>
-        </div>
-
-      </div>
-
-    </header>
-
-
-    <!-- STÓŁ -->
-
-    <main class="table">
-
-      <!-- GÓRNY GRACZ -->
-
-      <div
-        id="topPlayer"
-        class="player-name player-top"
-      >
-        Gracz
-      </div>
-
-
-      <!-- LEWY GRACZ -->
-
-      <div
-        id="leftPlayer"
-        class="player-name player-left"
-      >
-        Gracz
-      </div>
-
-
-      <!-- PRAWY GRACZ -->
-
-      <div
-        id="rightPlayer"
-        class="player-name player-right"
-      >
-        Gracz
-      </div>
-
-
-      <!-- ŚRODEK STOŁU -->
-
-      <div class="table-center">
-
-        <div
-          id="gameMessage"
-          class="game-message"
-        >
-          Ładowanie gry...
-        </div>
-
-        <div
-          id="playedCards"
-          class="played-cards"
-        ></div>
-
-      </div>
-
-    </main>
-
-
-    <!-- TWOJE KARTY -->
-
-    <section class="my-area">
-
-      <div class="my-label">
-        TWOJE KARTY
-      </div>
-
-      <div
-        id="myCards"
-        class="my-cards"
-      ></div>
 
     </section>
 
-  </section>
+
+    <!-- =========================
+         POCZEKALNIA
+    ========================== -->
+
+    <section id="lobbyScreen" class="screen">
+
+        <div class="lobby-box">
+
+            <h2>POCZEKALNIA</h2>
+
+            <div class="lobby-room">
+                Pokój:
+                <strong id="lobbyRoom">—</strong>
+            </div>
 
 
-  <script src="/socket.io/socket.io.js"></script>
+            <h3>Gracze</h3>
 
-  <script src="/game.js"></script>
+            <div id="lobbyPlayers">
+                <!-- gracze pojawiają się tutaj -->
+            </div>
+
+
+            <!-- =========================
+                 WYBÓR DRUŻYNY
+            ========================== -->
+
+            <div class="team-selection">
+
+                <h3>Wybierz drużynę</h3>
+
+                <div class="team-buttons">
+
+                    <button
+                        id="team1Button"
+                        type="button"
+                        class="team-button"
+                        data-team="0"
+                    >
+                        DRUŻYNA 1
+                    </button>
+
+                    <button
+                        id="team2Button"
+                        type="button"
+                        class="team-button"
+                        data-team="1"
+                    >
+                        DRUŻYNA 2
+                    </button>
+
+                </div>
+
+                <div
+                    id="selectedTeam"
+                    class="selected-team"
+                >
+                    Nie wybrano drużyny
+                </div>
+
+            </div>
+
+
+            <button
+                id="leaveButton"
+                type="button"
+            >
+                OPUŚĆ POKÓJ
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- =========================
+         EKRAN GRY
+    ========================== -->
+
+    <section id="gameScreen" class="screen">
+
+        <div class="game">
+
+            <!-- NAGŁÓWEK -->
+
+            <div class="game-header">
+
+                <div class="game-title">
+                    SZNAPS
+                </div>
+
+                <div
+                    id="trumpDisplay"
+                    class="trump"
+                >
+                    Obrany kolor: —
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 WYNIKI
+            ========================== -->
+
+            <div class="scores">
+
+                <div class="score-box">
+
+                    <div
+                        id="team1Name"
+                        class="score-name"
+                    >
+                        Drużyna 1
+                    </div>
+
+                    <div
+                        id="scoreTeam1"
+                        class="score-value"
+                    >
+                        0
+                    </div>
+
+                </div>
+
+
+                <div class="score-box">
+
+                    <div
+                        id="team2Name"
+                        class="score-name"
+                    >
+                        Drużyna 2
+                    </div>
+
+                    <div
+                        id="scoreTeam2"
+                        class="score-value"
+                    >
+                        0
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 STÓŁ
+            ========================== -->
+
+            <div class="table">
+
+                <div
+                    id="topPlayer"
+                    class="player player-top"
+                >
+                    —
+                </div>
+
+                <div
+                    id="leftPlayer"
+                    class="player player-left"
+                >
+                    —
+                </div>
+
+                <div
+                    id="rightPlayer"
+                    class="player player-right"
+                >
+                    —
+                </div>
+
+
+                <!-- KARTY NA STOLE -->
+
+                <div id="playedCards">
+                    <!-- karty pojawiają się tutaj -->
+                </div>
+
+
+                <!-- MOJE KARTY -->
+
+                <div id="myCards">
+                    <!-- karty gracza -->
+                </div>
+
+            </div>
+
+
+            <!-- KOMUNIKAT -->
+
+            <div
+                id="gameMessage"
+                aria-live="polite"
+            >
+                —
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- SOCKET.IO -->
+
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- GŁÓWNY JS -->
+
+    <script src="/game.js"></script>
 
 </body>
 </html>
