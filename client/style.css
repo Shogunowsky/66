@@ -2,40 +2,19 @@
     box-sizing: border-box;
 }
 
-:root {
-    --bg: #0b0d12;
-    --panel: #151923;
-    --panel-light: #1d2230;
-    --border: #303747;
-    --text: #f2f4f8;
-    --muted: #9ca4b5;
-    --accent: #d8a84e;
-    --accent-hover: #edbd5d;
-    --danger: #d9534f;
-    --green: #4caf72;
-}
-
 html,
 body {
     margin: 0;
     padding: 0;
     min-height: 100%;
+    font-family: Arial, Helvetica, sans-serif;
+    background:
+        radial-gradient(circle at top, #1d2633 0%, #0d1117 55%, #080a0d 100%);
+    color: #f5f5f5;
 }
 
 body {
-    background:
-        radial-gradient(
-            circle at top,
-            #202638 0%,
-            #0b0d12 55%
-        );
-
-    color: var(--text);
-
-    font-family:
-        Arial,
-        Helvetica,
-        sans-serif;
+    min-height: 100vh;
 }
 
 button,
@@ -52,906 +31,576 @@ button {
 }
 
 
-/* ========================= */
-/* EKRANY */
-/* ========================= */
+/* =========================
+   START
+========================= */
 
 .screen {
+    width: 100%;
     min-height: 100vh;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    padding: 20px;
 }
 
-
-/* ========================= */
-/* START */
-/* ========================= */
-
-.start-card,
-.lobby-card {
-    width: 100%;
-    max-width: 430px;
-
-    background:
-        rgba(21, 25, 35, 0.96);
-
-    border: 1px solid var(--border);
-
+.startCard,
+.lobbyCard {
+    width: min(420px, calc(100% - 30px));
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: rgba(20, 25, 32, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 18px;
-
-    padding: 30px;
-
-    box-shadow:
-        0 20px 60px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
 }
 
-.start-card h1,
-.lobby-card h1 {
+.startCard {
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.startCard h1,
+.lobbyCard h2 {
     margin: 0;
-
     text-align: center;
-
-    font-size: 42px;
-    letter-spacing: 2px;
+    font-size: 48px;
+    letter-spacing: 3px;
 }
 
-.subtitle {
-    margin: 6px 0 28px;
-
+.startCard p {
+    margin: 5px 0 28px;
     text-align: center;
-
-    color: var(--muted);
-
-    font-size: 16px;
+    color: #9ca6b3;
 }
 
-
-/* ========================= */
-/* INPUTY */
-/* ========================= */
-
-input {
+.startCard input {
     width: 100%;
-
     margin-bottom: 12px;
-
     padding: 14px 15px;
-
-    background: #0f1219;
-
-    color: var(--text);
-
-    border: 1px solid var(--border);
-
+    border: 1px solid #343c47;
     border-radius: 10px;
-
     outline: none;
-
-    transition:
-        border-color 0.2s,
-        box-shadow 0.2s;
+    background: #11161d;
+    color: #fff;
 }
 
-input:focus {
-    border-color: var(--accent);
-
-    box-shadow:
-        0 0 0 3px rgba(216, 168, 78, 0.12);
+.startCard input:focus {
+    border-color: #65758b;
 }
 
-input::placeholder {
-    color: #6f7788;
-}
-
-
-/* ========================= */
-/* BUTTONY */
-/* ========================= */
-
-button {
+.startCard button,
+.lobbyCard button {
+    width: 100%;
+    padding: 13px 15px;
     border: 0;
-
     border-radius: 10px;
-
-    padding: 13px 16px;
-
-    color: #111;
-
-    background: var(--accent);
-
+    background: #2d78ff;
+    color: white;
     font-weight: 700;
-
-    transition:
-        transform 0.15s,
-        background 0.15s,
-        opacity 0.15s;
+    transition: 0.15s ease;
 }
 
-button:hover {
-    background: var(--accent-hover);
+.startCard button:hover,
+.lobbyCard button:hover {
+    filter: brightness(1.12);
 }
 
-button:active {
-    transform: scale(0.98);
-}
-
-button:disabled {
-    opacity: 0.45;
-
-    cursor: not-allowed;
-
-    transform: none;
-}
-
-#joinButton,
-#botsButton {
-    width: 100%;
-
-    margin-top: 4px;
-}
-
-.secondary-button {
-    width: 100%;
-
-    margin-top: 10px;
-
-    background: #252b39;
-
-    color: var(--text);
-}
-
-.secondary-button:hover {
-    background: #303747;
-}
-
-
-/* ========================= */
-/* KOMUNIKATY */
-/* ========================= */
-
-.message {
-    min-height: 20px;
-
-    margin: 14px 0 0;
-
+#startMessage {
+    min-height: 22px;
+    margin-top: 14px;
     text-align: center;
-
-    color: var(--muted);
-
-    font-size: 14px;
+    color: #ff8d8d;
 }
 
 
-/* ========================= */
-/* LOBBY */
-/* ========================= */
+/* =========================
+   LOBBY
+========================= */
 
-.room-info {
-    display: flex;
-
-    align-items: center;
-    justify-content: center;
-
-    gap: 8px;
-
-    margin-top: 22px;
-
-    color: var(--muted);
+.lobbyCard {
+    margin-top: 40px;
 }
 
-.room-info strong {
-    color: var(--accent);
-
-    letter-spacing: 2px;
+#lobbyRoom {
+    margin-top: 10px;
+    text-align: center;
+    color: #9ca6b3;
 }
 
-.lobby-players {
-    margin-top: 24px;
-}
-
-.lobby-players h2,
-.team-selection h2 {
-    margin: 0 0 12px;
-
-    font-size: 17px;
+#lobbyStatus {
+    margin: 18px 0;
+    text-align: center;
+    color: #d7dde5;
 }
 
 #lobbyPlayers {
     display: flex;
-
     flex-direction: column;
-
     gap: 8px;
+    margin-bottom: 18px;
 }
 
-.lobby-player {
-    display: flex;
-
-    align-items: center;
-    justify-content: space-between;
-
-    min-height: 46px;
-
-    padding: 10px 13px;
-
-    background: var(--panel-light);
-
-    border: 1px solid var(--border);
-
-    border-radius: 10px;
+.lobbyPlayer {
+    padding: 11px 13px;
+    border-radius: 9px;
+    background: #11161d;
+    border: 1px solid #252d38;
 }
 
-.lobby-player-name {
-    font-weight: 600;
-}
-
-.lobby-player-team {
-    color: var(--accent);
-
-    font-size: 13px;
-}
-
-.lobby-player-bot {
-    color: var(--muted);
-
-    font-size: 12px;
-}
-
-.empty-player {
-    padding: 14px;
-
-    background: #10131a;
-
-    border: 1px dashed var(--border);
-
-    border-radius: 10px;
-
-    color: var(--muted);
-
-    text-align: center;
-}
-
-
-/* ========================= */
-/* DRUŻYNY */
-/* ========================= */
-
-.team-selection {
-    margin: 24px 0;
-}
-
-.team-buttons {
+.teamSelection {
     display: grid;
-
     grid-template-columns: 1fr 1fr;
-
     gap: 10px;
+    margin-bottom: 10px;
 }
 
-.team-buttons button {
-    background: #252b39;
-
-    color: var(--text);
-}
-
-.team-buttons button.selected {
-    background: var(--accent);
-
-    color: #111;
-}
-
-.selected-team-text {
-    margin: 10px 0 0;
-
-    color: var(--muted);
-
-    font-size: 13px;
-
-    text-align: center;
+.teamSelection button {
+    background: #26313f;
 }
 
 #selectedTeam {
-    color: var(--accent);
+    min-height: 24px;
+    margin: 8px 0 14px;
+    text-align: center;
+    color: #8fb7ff;
+}
+
+#botsButton {
+    margin-bottom: 10px;
+}
+
+.secondaryButton {
+    background: #252b33 !important;
+    color: #c7cdd5 !important;
 }
 
 
-/* ========================= */
-/* GRA */
-/* ========================= */
+/* =========================
+   GAME HEADER
+========================= */
 
-#gameScreen {
-    align-items: stretch;
-
-    justify-content: stretch;
-
-    padding: 0;
-}
-
-.game-container {
-    width: 100%;
-
+.gameContainer {
+    width: min(1200px, 100%);
     min-height: 100vh;
-
-    display: flex;
-
-    flex-direction: column;
+    margin: 0 auto;
+    padding: 14px;
 }
 
-
-/* ========================= */
-/* HEADER GRY */
-/* ========================= */
-
-.game-header {
+.gameHeader {
     display: flex;
-
     align-items: center;
-
     justify-content: space-between;
-
-    gap: 20px;
-
-    padding: 12px 18px;
-
-    background:
-        rgba(15, 18, 25, 0.95);
-
-    border-bottom: 1px solid var(--border);
+    gap: 15px;
+    margin-bottom: 12px;
 }
 
-.trump-info {
-    display: flex;
-
-    align-items: center;
-
-    gap: 8px;
-
-    white-space: nowrap;
-
-    color: var(--muted);
+.gameTitle h1 {
+    margin: 0;
+    font-size: 34px;
+    letter-spacing: 3px;
 }
 
-#trumpDisplay {
-    color: var(--accent);
-
-    font-size: 20px;
+.trumpBox {
+    min-width: 100px;
+    padding: 8px 14px;
+    border-radius: 12px;
+    background: rgba(20, 25, 32, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: center;
 }
 
-.scores {
-    display: flex;
-
-    gap: 20px;
+.trumpBox span {
+    display: block;
+    font-size: 11px;
+    color: #8993a0;
+    text-transform: uppercase;
 }
 
-.score-team {
+.trumpBox strong {
+    display: block;
+    margin-top: 3px;
+    font-size: 25px;
+}
+
+
+/* =========================
+   SCORES
+========================= */
+
+.scoreBoard {
     display: grid;
-
-    grid-template-columns:
-        auto auto auto;
-
-    align-items: center;
-
-    column-gap: 6px;
-
-    font-size: 12px;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
 }
 
-.score-team > span:first-child {
-    grid-column: 1 / -1;
+.teamScore {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(20, 25, 32, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: center;
+}
 
-    margin-bottom: 2px;
-
+.teamScore > div:first-child {
     font-weight: 700;
-
-    color: var(--text);
+    margin-bottom: 5px;
 }
 
-.score-team strong {
-    color: var(--accent);
-
-    font-size: 18px;
+.scoreLabel,
+.overallLabel,
+.gamesLabel {
+    display: inline-block;
+    margin: 3px 4px 0;
+    color: #8993a0;
+    font-size: 11px;
 }
 
-.score-team small {
-    color: var(--muted);
+.teamScore strong {
+    font-size: 25px;
+    margin-left: 3px;
+}
 
-    font-size: 10px;
+.teamScore span {
+    color: #d8dee7;
 }
 
 
-/* ========================= */
-/* STÓŁ */
-/* ========================= */
+/* =========================
+   TABLE
+========================= */
 
-.game-table {
+.gameTable {
     position: relative;
-
-    flex: 1;
-
-    min-height: 0;
-
+    min-height: 650px;
+    border-radius: 24px;
     overflow: hidden;
-
     background:
         radial-gradient(
-            ellipse at center,
-            #21432f 0%,
-            #183524 48%,
-            #10261a 100%
+            circle at center,
+            #1c5a3c 0%,
+            #16472f 48%,
+            #103524 100%
         );
-
-    border: 10px solid #090b0f;
-}
-
-
-/* ========================= */
-/* GRACZE */
-/* ========================= */
-
-.player {
-    position: absolute;
-
-    z-index: 5;
-
-    padding: 8px 13px;
-
-    background:
-        rgba(10, 12, 17, 0.82);
-
-    border: 1px solid rgba(255,255,255,0.1);
-
-    border-radius: 20px;
-
-    color: var(--text);
-
-    font-size: 13px;
-
-    white-space: nowrap;
-
+    border: 2px solid #2c7050;
     box-shadow:
-        0 5px 18px rgba(0,0,0,0.25);
+        inset 0 0 80px rgba(0, 0, 0, 0.25),
+        0 20px 50px rgba(0, 0, 0, 0.3);
 }
 
-.player-top {
-    top: 18px;
 
+/* PLAYER POSITIONS */
+
+.tablePlayer {
+    position: absolute;
+    z-index: 5;
+    text-align: center;
+}
+
+.playerName {
+    display: inline-block;
+    padding: 7px 12px;
+    border-radius: 20px;
+    background: rgba(7, 12, 10, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.topPlayer {
+    top: 16px;
     left: 50%;
-
     transform: translateX(-50%);
 }
 
-.player-left {
+.leftPlayer {
     top: 50%;
-
-    left: 14px;
-
-    transform:
-        translateY(-50%)
-        rotate(-90deg);
+    left: 15px;
+    transform: translateY(-50%);
 }
 
-.player-right {
+.rightPlayer {
     top: 50%;
-
-    right: 14px;
-
-    transform:
-        translateY(-50%)
-        rotate(90deg);
+    right: 15px;
+    transform: translateY(-50%);
 }
 
-
-/* ========================= */
-/* KARTY NA STOLE */
-/* ========================= */
-
-.played-cards {
-    position: absolute;
-
+.currentPlayer {
     left: 50%;
-    top: 50%;
-
-    transform:
-        translate(-50%, -50%);
-
-    width: min(330px, 55vw);
-
-    height: 250px;
+    bottom: 12px;
+    transform: translateX(-50%);
+    width: min(90%, 700px);
 }
 
-.played-card {
+
+/* =========================
+   CENTER / PLAYED CARDS
+========================= */
+
+.tableCenter {
     position: absolute;
-
-    width: 72px;
-    height: 104px;
-
-    left: 50%;
     top: 50%;
-
-    transform:
-        translate(-50%, -50%);
-
-    z-index: 1;
+    left: 50%;
+    width: min(80%, 600px);
+    transform: translate(-50%, -50%);
 }
 
-.played-card.card-0 {
-    transform:
-        translate(-105px, -50%);
+.playedCards {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    min-height: 150px;
 }
 
-.played-card.card-1 {
-    transform:
-        translate(-50%, -105px);
-}
-
-.played-card.card-2 {
-    transform:
-        translate(33px, -50%);
-}
-
-.played-card.card-3 {
-    transform:
-        translate(-50%, 1px);
-}
-
-
-/* ========================= */
-/* KARTY */
-/* ========================= */
-
-.card {
+.playedCard {
     position: relative;
-
-    width: 72px;
-    height: 104px;
-
-    border-radius: 9px;
-
-    background:
-        linear-gradient(
-            145deg,
-            #ffffff,
-            #e9ebef
-        );
-
-    border: 1px solid #c9ccd2;
-
-    color: #15171c;
-
-    box-shadow:
-        0 7px 15px rgba(0,0,0,0.35);
-
-    user-select: none;
+    width: 90px;
+    min-height: 118px;
+    padding: 8px;
+    border-radius: 10px;
+    background: #fafafa;
+    color: #111;
+    border: 2px solid #d8d8d8;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
 }
 
-.card.red {
-    color: #c73535;
+.playedCard .playedBy {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 11px;
+    color: #555;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.card-black {
-    color: #17191d;
-}
-
-.card-rank {
-    position: absolute;
-
-    top: 6px;
-    left: 7px;
-
-    font-size: 17px;
-
+.playedCard .cardSymbol {
+    display: block;
+    text-align: center;
+    font-size: 30px;
     font-weight: 800;
 }
 
-.card-suit {
-    position: absolute;
-
-    top: 28px;
-    left: 7px;
-
-    font-size: 18px;
+.playedCard.red {
+    color: #d71920;
 }
 
-.card-value {
-    position: absolute;
-
-    right: 6px;
-    bottom: 5px;
-
-    font-size: 11px;
-
-    color: #666b75;
+.playedCard.black {
+    color: #111;
 }
 
 
-/* ========================= */
-/* MOJE KARTY */
-/* ========================= */
+/* =========================
+   PLAYER HAND
+========================= */
 
-.my-cards {
-    position: absolute;
-
-    left: 50%;
-
-    bottom: 12px;
-
-    transform:
-        translateX(-50%);
-
+.myCards {
     display: flex;
-
-    align-items: flex-end;
-
     justify-content: center;
-
-    min-height: 115px;
-
-    width: min(700px, 90%);
-
+    align-items: flex-end;
     gap: 7px;
-
-    z-index: 10;
+    margin-top: 9px;
+    min-height: 130px;
+    flex-wrap: wrap;
 }
 
-.my-cards .card {
-    cursor: pointer;
-
+.card {
+    position: relative;
+    width: 74px;
+    height: 105px;
+    padding: 8px;
+    border: 2px solid #d4d4d4;
+    border-radius: 10px;
+    background: #fff;
+    color: #111;
+    box-shadow: 0 7px 15px rgba(0, 0, 0, 0.35);
     transition:
-        transform 0.15s,
-        margin 0.15s;
+        transform 0.15s ease,
+        box-shadow 0.15s ease,
+        border-color 0.15s ease;
 }
 
-.my-cards .card:hover {
-    transform:
-        translateY(-15px);
+.card:hover {
+    transform: translateY(-9px);
+    box-shadow: 0 14px 22px rgba(0, 0, 0, 0.4);
 }
 
-.my-cards .card.disabled {
-    opacity: 0.45;
+.card.red {
+    color: #d71920;
+}
 
+.card.black {
+    color: #111;
+}
+
+.card .cardSymbol {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    font-size: 27px;
+    font-weight: 800;
+}
+
+.card.disabled {
+    opacity: 0.42;
     cursor: not-allowed;
 }
 
-.my-cards .card.disabled:hover {
-    transform: none;
+.card.playable {
+    border-color: #70b4ff;
 }
 
 
-/* ========================= */
-/* KOMUNIKAT W GRZE */
-/* ========================= */
+/* =========================
+   GAME MESSAGE
+========================= */
 
-.game-message {
-    position: absolute;
-
-    left: 50%;
-
-    top: calc(50% + 140px);
-
-    transform:
-        translateX(-50%);
-
-    z-index: 20;
-
-    min-width: 180px;
-
-    max-width: 80%;
-
-    padding: 9px 15px;
-
-    border-radius: 20px;
-
-    background:
-        rgba(5, 8, 10, 0.75);
-
-    color: var(--text);
-
+.gameMessage {
+    min-height: 38px;
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: rgba(4, 10, 7, 0.62);
     text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+}
 
+
+/* =========================
+   GAME INFO
+========================= */
+
+.gameInfo {
+    min-height: 30px;
+    margin-top: 8px;
+    text-align: center;
+    color: #bfc7d2;
     font-size: 13px;
-
-    pointer-events: none;
 }
 
 
-/* ========================= */
-/* WYBÓR ATUTU */
-/* ========================= */
-
-.trump-choice {
-    position: absolute;
-
-    left: 50%;
-    top: 50%;
-
-    transform:
-        translate(-50%, -50%);
-
-    z-index: 30;
-
-    display: flex;
-
-    flex-wrap: wrap;
-
-    justify-content: center;
-
-    gap: 10px;
-
-    width: min(400px, 90%);
-
-    padding: 18px;
-
-    background:
-        rgba(10, 12, 17, 0.96);
-
-    border:
-        1px solid var(--border);
-
-    border-radius: 15px;
-
-    box-shadow:
-        0 15px 45px rgba(0,0,0,0.5);
-}
-
-.trump-choice button {
-    min-width: 75px;
-}
-
-
-/* ========================= */
-/* RESPONSIVE */
-/* ========================= */
+/* =========================
+   RESPONSIVE
+========================= */
 
 @media (max-width: 700px) {
 
-    .screen {
-        padding: 12px;
+    .gameContainer {
+        padding: 8px;
     }
 
-    .start-card,
-    .lobby-card {
-        padding: 22px 18px;
-
-        border-radius: 15px;
+    .gameHeader {
+        margin-bottom: 8px;
     }
 
-    .start-card h1,
-    .lobby-card h1 {
-        font-size: 36px;
+    .gameTitle h1 {
+        font-size: 28px;
     }
 
-    .game-header {
-        padding: 9px 10px;
-
-        gap: 10px;
+    .scoreBoard {
+        gap: 6px;
     }
 
-    .scores {
-        gap: 8px;
+    .teamScore {
+        padding: 8px 5px;
     }
 
-    .score-team {
-        column-gap: 4px;
+    .scoreLabel,
+    .overallLabel,
+    .gamesLabel {
+        display: block;
     }
 
-    .score-team strong {
-        font-size: 16px;
+    .gameTable {
+        min-height: 590px;
+        border-radius: 18px;
     }
 
-    .score-team small {
+    .leftPlayer {
+        left: 7px;
+    }
+
+    .rightPlayer {
+        right: 7px;
+    }
+
+    .playerName {
+        max-width: 105px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .tableCenter {
+        width: 78%;
+    }
+
+    .playedCards {
+        gap: 6px;
+    }
+
+    .playedCard {
+        width: 70px;
+        min-height: 95px;
+        padding: 6px;
+    }
+
+    .playedCard .cardSymbol {
+        font-size: 24px;
+    }
+
+    .playedCard .playedBy {
         font-size: 9px;
     }
 
-    .game-table {
-        border-width: 5px;
+    .currentPlayer {
+        width: 96%;
     }
 
-    .player {
-        padding: 6px 9px;
-
-        font-size: 11px;
-    }
-
-    .player-left {
-        left: 2px;
-    }
-
-    .player-right {
-        right: 2px;
-    }
-
-    .played-cards {
-        width: 260px;
-
-        height: 210px;
-    }
-
-    .played-card {
-        width: 58px;
-        height: 84px;
+    .myCards {
+        gap: 4px;
+        min-height: 110px;
     }
 
     .card {
-        width: 58px;
-        height: 84px;
+        width: 55px;
+        height: 82px;
+        border-radius: 8px;
+        padding: 4px;
     }
 
-    .card-rank {
-        top: 4px;
-        left: 5px;
-
-        font-size: 14px;
-    }
-
-    .card-suit {
-        top: 23px;
-        left: 5px;
-
-        font-size: 15px;
-    }
-
-    .card-value {
-        right: 5px;
-        bottom: 4px;
-
-        font-size: 9px;
-    }
-
-    .my-cards {
-        gap: 3px;
-
-        width: 96%;
-
-        bottom: 7px;
-
-        min-height: 92px;
-    }
-
-    .my-cards .card:hover {
-        transform:
-            translateY(-8px);
-    }
-
-    .game-message {
-        top: calc(50% + 115px);
-
-        font-size: 11px;
+    .card .cardSymbol {
+        font-size: 21px;
     }
 }
 
 @media (max-width: 420px) {
 
-    .team-buttons {
-        grid-template-columns: 1fr;
+    .startCard,
+    .lobbyCard {
+        width: calc(100% - 20px);
+        padding: 24px 17px;
     }
 
-    .game-header {
-        flex-direction: column;
-
-        align-items: stretch;
+    .startCard h1,
+    .lobbyCard h2 {
+        font-size: 40px;
     }
 
-    .trump-info {
-        justify-content: center;
+    .gameTable {
+        min-height: 540px;
     }
 
-    .scores {
-        justify-content: center;
+    .playedCard {
+        width: 61px;
+        min-height: 84px;
     }
 
-    .my-cards {
-        gap: 1px;
-    }
-
-    .my-cards .card {
-        margin-left: -3px;
-    }
-
-    .my-cards .card:first-child {
-        margin-left: 0;
+    .card {
+        width: 50px;
+        height: 75px;
     }
 }
