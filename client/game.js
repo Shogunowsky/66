@@ -1,12 +1,66 @@
 const socket = io();
 
+let mySocketId = null;
+let latestState = null;
+let selectedTeam = null;
+
+
 /* =========================
-   EKRANY
+   DOM
 ========================= */
 
 const startScreen = document.getElementById("startScreen");
 const lobbyScreen = document.getElementById("lobbyScreen");
 const gameScreen = document.getElementById("gameScreen");
+
+const nicknameInput = document.getElementById("nickname");
+const roomInput = document.getElementById("room");
+
+const joinButton = document.getElementById("joinButton");
+const leaveButton = document.getElementById("leaveButton");
+
+const team1Button = document.getElementById("team1Button");
+const team2Button = document.getElementById("team2Button");
+const botsButton = document.getElementById("botsButton");
+
+const startMessage = document.getElementById("startMessage");
+
+const lobbyRoom = document.getElementById("lobbyRoom");
+const lobbyStatus = document.getElementById("lobbyStatus");
+const lobbyPlayers = document.getElementById("lobbyPlayers");
+const selectedTeamDisplay = document.getElementById("selectedTeam");
+
+const trumpDisplay = document.getElementById("trumpDisplay");
+
+const scoreTeam1 = document.getElementById("scoreTeam1");
+const scoreTeam2 = document.getElementById("scoreTeam2");
+
+const overallTeam1 = document.getElementById("overallTeam1");
+const overallTeam2 = document.getElementById("overallTeam2");
+
+const gamesTeam1 = document.getElementById("gamesTeam1");
+const gamesTeam2 = document.getElementById("gamesTeam2");
+
+const team1Name = document.getElementById("team1Name");
+const team2Name = document.getElementById("team2Name");
+
+const topPlayer = document.getElementById("topPlayer");
+const leftPlayer = document.getElementById("leftPlayer");
+const rightPlayer = document.getElementById("rightPlayer");
+
+const currentPlayerName = document.getElementById("currentPlayerName");
+
+const myCards = document.getElementById("myCards");
+const playedCards = document.getElementById("playedCards");
+
+const gameMessage = document.getElementById("gameMessage");
+
+const currentPlayerInfo = document.getElementById("currentPlayer");
+
+
+/* =========================
+   HELPERS
+========================= */
 
 function showScreen(screen) {
     startScreen.classList.add("hidden");
@@ -16,83 +70,179 @@ function showScreen(screen) {
     screen.classList.remove("hidden");
 }
 
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function cardSymbol(card) {
+    if (!card) return "";
+
+    return `${card.rank}${card.suit}`;
+}
+
+function cardClass(card) {
+    if (!card) return "";
+
+    if (card.suit === "♥" || card.suit === "♦") {
+        return "red";
+    }
+
+    return "black";
+}
+
+function cardValue(card) {
+    if (!card) return 0;
+
+    const values = {
+        A: 11,
+        "10": 10,
+        K: 4,
+        Q: 3,
+        J: 2,
+        "9": 0
+    };
+
+    return values[card.rank] ?? 0;
+}
+
+function cardRankPower(rank) {
+    const order = {
+        A: 6,
+        "10": 5,
+        K: 4,
+        Q: 3,
+        J: 2,
+        "9": 1
+    };
+
+    return order[rank] ?? 0;
+}
+
 
 /* =========================
-   START
+   CLIENT-SIDE LEGALITY
 ========================= */
 
-const nicknameInput =
-    document.getElementById("nickname");
+function getLeadSuit(state) {
+    if (!state || !Array.isArray(state.trick)) {
+        return null;
+    }
 
-const roomInput =
-    document.getElementById("room");
+    if (!state.trick.length) {
+        return null;
+    }
 
-const joinButton =
-    document.getElementById("joinButton");
+    const first = state.trick[0];
 
-const startMessage =
-    document.getElementById("startMessage");
+    return first.card?.suit || null;
+}
 
+function getCurrentWinningCard(state) {
+    if (!state || !Array.isArray(state.trick)) {
+        return null;
+    }
 
-joinButton.addEventListener("click", joinRoom);
+    if (!state.trick.length) {
+        return null;
+    }
 
-nicknameInput.addEventListener(
-    "keydown",
-    event => {
-        if (event.key === "Enter") {
-            joinRoom();
+    const trump = state.trump || null;
+    const leadSuit = getLeadSuit(state);
+
+    let winner = state.trick[0].card;
+
+    for (let i = 1; i < state.trick.length; i++) {
+        const candidate = state.trick[i].card;
+
+        if (cardBeats(candidate, winner, leadSuit, trump)) {
+            winner = candidate;
         }
     }
-);
 
-roomInput.addEventListener(
-    "keydown",
-    event => {
-        if (event.key === "Enter") {
-            joinRoom();
+    return winner;
+}
+
+function cardBeats(candidate, current, leadSuit, trump) {
+    if (!candidate || !current) {
+        return false;
+    }
+
+    if (trump) {
+        if (candidate.suit === trump && current.suit !== trump) {
+            return true;
+        }
+
+        if (candidate.suit !== trump && current.suit === trump) {
+            return false;
+        }
+
+        if (
+            candidate.suit === trump &&
+            current.suit === trump
+        ) {
+            return cardRankPower(candidate.rank) >
+                cardRankPower(current.rank);
         }
     }
-);
 
-
-function joinRoom() {
-
-    const name =
-        nicknameInput.value.trim();
-
-    const roomId =
-        roomInput.value
-            .trim()
-            .toUpperCase();
-
-    if (!name) {
-
-        startMessage.textContent =
-            "Podaj nick.";
-
-        return;
+    if (candidate.suit === leadSuit && current.suit !== leadSuit) {
+        return true;
     }
 
-    if (!roomId) {
-
-        startMessage.textContent =
-            "Podaj kod pokoju.";
-
-        return;
+    if (candidate.suit !== leadSuit && current.suit === leadSuit) {
+        return false;
     }
 
-    startMessage.textContent =
-        "Łączenie...";
+    if (
+        candidate.suit === current.suit
+    ) {
+        return cardRankPower(candidate.rank) >
+            cardRankPower(current.rank);
+    }
 
-    joinButton.disabled = true;
+    return false;
+}
 
-    socket.emit(
-        "joinRoom",
-        {
-            name,
-            roomId
-        }
+function isLegalClientPlay(state, card) {
+    if (!state || !card) {
+        return false;
+    }
+
+    const hand = Array.isArray(state.hand)
+        ? state.hand
+        : [];
+
+    const leadSuit = getLeadSuit(state);
+    const trump = state.trump || null;
+
+    if (!leadSuit) {
+        return true;
+    }
+
+    const hasLeadSuit = hand.some(
+        c => c.suit === leadSuit
     );
+
+    if (hasLeadSuit) {
+        return card.suit === leadSuit;
+    }
+
+    if (trump) {
+        const hasTrump = hand.some(
+            c => c.suit === trump
+        );
+
+        if (hasTrump) {
+            return card.suit === trump;
+        }
+    }
+
+    return true;
 }
 
 
@@ -100,1264 +250,486 @@ function joinRoom() {
    LOBBY
 ========================= */
 
-const lobbyRoom =
-    document.getElementById("lobbyRoom");
+function renderLobby(state) {
+    if (!state) return;
 
-const lobbyStatus =
-    document.getElementById("lobbyStatus");
+    showScreen(lobbyScreen);
 
-const lobbyPlayers =
-    document.getElementById("lobbyPlayers");
+    lobbyRoom.textContent =
+        `Pokój: ${state.roomName || state.room || "—"}`;
 
-const team1Button =
-    document.getElementById("team1Button");
-
-const team2Button =
-    document.getElementById("team2Button");
-
-const selectedTeam =
-    document.getElementById("selectedTeam");
-
-const botsButton =
-    document.getElementById("botsButton");
-
-const leaveButton =
-    document.getElementById("leaveButton");
-
-
-let myName = "";
-let myTeam = null;
-
-
-/* =========================
-   DOŁĄCZENIE
-========================= */
-
-socket.on(
-    "joinedRoom",
-    data => {
-
-        myName =
-            data.name || "";
-
-        lobbyRoom.textContent =
-            data.roomId || "";
-
-        startMessage.textContent =
-            "";
-
-        joinButton.disabled =
-            false;
-
-        showScreen(
-            lobbyScreen
-        );
-    }
-);
-
-
-/* =========================
-   STAN LOBBY
-========================= */
-
-socket.on(
-    "lobbyState",
-    data => {
-
-        lobbyRoom.textContent =
-            data.roomId || "";
-
-        renderLobbyPlayers(
-            data.players || []
-        );
-
-        const count =
-            data.playerCount || 0;
-
-        const max =
-            data.maxPlayers || 4;
-
-        lobbyStatus.textContent =
-            `Gracze: ${count}/${max}`;
-
-        /*
-         * Odświeżamy własną drużynę.
-         */
-
-        const me =
-            (data.players || []).find(
-                player =>
-                    !player.isBot &&
-                    player.name === myName
-            );
-
-        if (me) {
-
-            myTeam =
-                me.team;
-
-            updateTeamButtons();
-        }
-    }
-);
-
-
-function renderLobbyPlayers(players) {
+    lobbyStatus.textContent =
+        state.statusMessage ||
+        "Wybierz drużynę.";
 
     lobbyPlayers.innerHTML = "";
 
-    if (!players.length) {
+    const players = Array.isArray(state.players)
+        ? state.players
+        : [];
 
-        const empty =
-            document.createElement("div");
+    players.forEach((player, index) => {
+        const element = document.createElement("div");
 
-        empty.className =
-            "empty-player";
+        element.className = "lobbyPlayer";
 
-        empty.textContent =
-            "Oczekiwanie na graczy...";
+        const teamText =
+            player.team === 0
+                ? "Drużyna 1"
+                : player.team === 1
+                    ? "Drużyna 2"
+                    : "bez drużyny";
 
-        lobbyPlayers.appendChild(
-            empty
-        );
+        element.innerHTML =
+            `<strong>${escapeHtml(player.name || `Gracz ${index + 1}`)}</strong>
+             <span> — ${teamText}</span>`;
 
-        return;
-    }
+        lobbyPlayers.appendChild(element);
+    });
 
-    players.forEach(
-        player => {
-
-            const row =
-                document.createElement("div");
-
-            row.className =
-                "lobby-player";
-
-            const left =
-                document.createElement("div");
-
-            left.className =
-                "lobby-player-name";
-
-            left.textContent =
-                player.name;
-
-            if (player.name === myName) {
-                left.textContent +=
-                    " (Ty)";
-            }
-
-            const right =
-                document.createElement("div");
-
-            right.className =
-                "lobby-player-team";
-
-            if (player.team === 0) {
-
-                right.textContent =
-                    "Drużyna 1";
-
-            } else if (player.team === 1) {
-
-                right.textContent =
-                    "Drużyna 2";
-
-            } else {
-
-                right.textContent =
-                    "Bez drużyny";
-            }
-
-            if (player.isBot) {
-
-                const bot =
-                    document.createElement("span");
-
-                bot.className =
-                    "lobby-player-bot";
-
-                bot.textContent =
-                    " • BOT";
-
-                right.appendChild(
-                    bot
-                );
-            }
-
-            row.appendChild(left);
-            row.appendChild(right);
-
-            lobbyPlayers.appendChild(
-                row
-            );
-        }
-    );
-}
-
-
-/* =========================
-   WYBÓR DRUŻYNY
-========================= */
-
-team1Button.addEventListener(
-    "click",
-    () => chooseTeam(0)
-);
-
-team2Button.addEventListener(
-    "click",
-    () => chooseTeam(1)
-);
-
-
-function chooseTeam(team) {
-
-    socket.emit(
-        "chooseTeam",
-        team
-    );
-}
-
-
-function updateTeamButtons() {
-
-    team1Button.classList.toggle(
-        "selected",
-        myTeam === 0
-    );
-
-    team2Button.classList.toggle(
-        "selected",
-        myTeam === 1
-    );
-
-    if (myTeam === 0) {
-
-        selectedTeam.textContent =
-            "Drużyna 1";
-
-    } else if (myTeam === 1) {
-
-        selectedTeam.textContent =
-            "Drużyna 2";
-
+    if (selectedTeam === 0) {
+        selectedTeamDisplay.textContent =
+            "Wybrano: Drużyna 1";
+    } else if (selectedTeam === 1) {
+        selectedTeamDisplay.textContent =
+            "Wybrano: Drużyna 2";
     } else {
-
-        selectedTeam.textContent =
-            "brak";
+        selectedTeamDisplay.textContent =
+            "Nie wybrano drużyny";
     }
 }
 
 
 /* =========================
-   START Z BOTAMI
+   GAME STATE
 ========================= */
-
-botsButton.addEventListener(
-    "click",
-    () => {
-
-        if (
-            myTeam !== 0 &&
-            myTeam !== 1
-        ) {
-
-            lobbyStatus.textContent =
-                "Najpierw wybierz drużynę.";
-
-            return;
-        }
-
-        botsButton.disabled =
-            true;
-
-        socket.emit(
-            "startWithBots"
-        );
-    }
-);
-
-
-/* =========================
-   WYJŚCIE
-========================= */
-
-leaveButton.addEventListener(
-    "click",
-    () => {
-
-        socket.emit(
-            "leaveRoom"
-        );
-
-        myTeam = null;
-        myName = "";
-
-        lobbyPlayers.innerHTML = "";
-
-        startMessage.textContent =
-            "";
-
-        joinButton.disabled =
-            false;
-
-        showScreen(
-            startScreen
-        );
-    }
-);
-
-
-/* =========================
-   START GRY
-========================= */
-
-socket.on(
-    "gameStarted",
-    () => {
-
-        botsButton.disabled =
-            false;
-
-        showScreen(
-            gameScreen
-        );
-    }
-);
-
-
-/* =========================
-   ELEMENTY GRY
-========================= */
-
-const trumpDisplay =
-    document.getElementById("trumpDisplay");
-
-const team1Name =
-    document.getElementById("team1Name");
-
-const team2Name =
-    document.getElementById("team2Name");
-
-const scoreTeam1 =
-    document.getElementById("scoreTeam1");
-
-const scoreTeam2 =
-    document.getElementById("scoreTeam2");
-
-const overallTeam1 =
-    document.getElementById("overallTeam1");
-
-const overallTeam2 =
-    document.getElementById("overallTeam2");
-
-const gamesTeam1 =
-    document.getElementById("gamesTeam1");
-
-const gamesTeam2 =
-    document.getElementById("gamesTeam2");
-
-const topPlayer =
-    document.getElementById("topPlayer");
-
-const leftPlayer =
-    document.getElementById("leftPlayer");
-
-const rightPlayer =
-    document.getElementById("rightPlayer");
-
-const playedCards =
-    document.getElementById("playedCards");
-
-const myCards =
-    document.getElementById("myCards");
-
-const gameMessage =
-    document.getElementById("gameMessage");
-
-
-let currentGameState = null;
-
-
-/* =========================
-   NAZWY KOLORÓW
-========================= */
-
-const suitSymbols = {
-    "♥": "♥",
-    "♦": "♦",
-    "♣": "♣",
-    "♠": "♠"
-};
-
-const suitNames = {
-    "♥": "Czerwo",
-    "♦": "Dzwonek",
-    "♣": "Krzak",
-    "♠": "Wino"
-};
-
-
-/* =========================
-   OBIERANIE ATUTU
-========================= */
-
-socket.on(
-    "chooseTrump",
-    data => {
-
-        showTrumpChoice(
-            data.hand || []
-        );
-    }
-);
-
-
-function showTrumpChoice(hand) {
-
-    removeTrumpChoice();
-
-    const box =
-        document.createElement("div");
-
-    box.className =
-        "trump-choice";
-
-    const title =
-        document.createElement("div");
-
-    title.style.width =
-        "100%";
-
-    title.style.textAlign =
-        "center";
-
-    title.style.marginBottom =
-        "4px";
-
-    title.textContent =
-        "Wybierz atu";
-
-    box.appendChild(
-        title
-    );
-
-    const suits = [
-        "♥",
-        "♦",
-        "♣",
-        "♠"
-    ];
-
-    suits.forEach(
-        suit => {
-
-            const button =
-                document.createElement("button");
-
-            button.type =
-                "button";
-
-            button.textContent =
-                `${suit} ${suitNames[suit]}`;
-
-            button.addEventListener(
-                "click",
-                () => {
-
-                    socket.emit(
-                        "chooseTrump",
-                        suit
-                    );
-
-                    removeTrumpChoice();
-                }
-            );
-
-            box.appendChild(
-                button
-            );
-        }
-    );
-
-    document
-        .querySelector(".game-table")
-        .appendChild(box);
-}
-
-
-function removeTrumpChoice() {
-
-    const old =
-        document.querySelector(
-            ".trump-choice"
-        );
-
-    if (old) {
-        old.remove();
-    }
-}
-
-
-/* =========================
-   STAN GRY
-========================= */
-
-socket.on(
-    "gameState",
-    state => {
-
-        currentGameState =
-            state;
-
-        showScreen(
-            gameScreen
-        );
-
-        renderGame(
-            state
-        );
-    }
-);
-
 
 function renderGame(state) {
+    if (!state) return;
+
+    latestState = state;
+
+    showScreen(gameScreen);
 
     renderScores(state);
-
     renderPlayers(state);
-
     renderTrump(state);
-
     renderPlayedCards(state);
-
-    renderMyCards(state);
-
-    renderMessage(state);
+    renderHand(state);
+    renderGameInfo(state);
 }
-
-
-/* =========================
-   WYNIKI
-========================= */
 
 function renderScores(state) {
-
-    const scores =
-        state.scores || [0, 0];
-
-    const overall =
-        state.overallScores ||
-        [0, 0];
-
-    const wins =
-        state.gameWins ||
-        [0, 0];
+    const scores = state.scores || {};
+    const overall = state.overallScores || {};
+    const wins = state.gameWins || {};
 
     scoreTeam1.textContent =
-        scores[0] ?? 0;
+        Number(scores[0] ?? 0);
 
     scoreTeam2.textContent =
-        scores[1] ?? 0;
+        Number(scores[1] ?? 0);
 
     overallTeam1.textContent =
-        overall[0] ?? 0;
+        Number(overall[0] ?? 0);
 
     overallTeam2.textContent =
-        overall[1] ?? 0;
+        Number(overall[1] ?? 0);
 
     gamesTeam1.textContent =
-        wins[0] ?? 0;
+        Number(wins[0] ?? 0);
 
     gamesTeam2.textContent =
-        wins[1] ?? 0;
+        Number(wins[1] ?? 0);
 
-    const names =
-        state.teamNames ||
-        [
-            "Drużyna 1",
-            "Drużyna 2"
-        ];
+    const names = state.teamNames || {};
 
     team1Name.textContent =
-        names[0];
+        names[0] || "Drużyna 1";
 
     team2Name.textContent =
-        names[1];
+        names[1] || "Drużyna 2";
 }
-
-
-/* =========================
-   GRACZE PRZY STOLE
-========================= */
 
 function renderPlayers(state) {
+    const players = Array.isArray(state.playerNames)
+        ? state.playerNames
+        : [];
 
-    const names =
-        state.playerNames ||
-        [];
+    const meIndex = Number.isInteger(state.myPlayerIndex)
+        ? state.myPlayerIndex
+        : findMyPlayerIndex(state);
 
-    const myIndex =
-        Number.isInteger(
-            state.playerIndex
-        )
-            ? state.playerIndex
-            : 0;
-
-    if (names.length < 4) {
-
-        topPlayer.textContent =
-            "Partner";
-
-        leftPlayer.textContent =
-            "Lewy";
-
-        rightPlayer.textContent =
-            "Prawy";
-
+    if (meIndex < 0 || players.length === 0) {
+        topPlayer.textContent = "—";
+        leftPlayer.textContent = "—";
+        rightPlayer.textContent = "—";
+        currentPlayerName.textContent = "Ty";
         return;
     }
 
-    /*
-     * Układ względem mnie:
-     *
-     * partner = +2
-     * lewy    = +1
-     * prawy   = +3
-     */
-
-    const topIndex =
-        (myIndex + 2) % 4;
-
-    const leftIndex =
-        (myIndex + 1) % 4;
-
-    const rightIndex =
-        (myIndex + 3) % 4;
+    const topIndex = (meIndex + 2) % 4;
+    const leftIndex = (meIndex + 3) % 4;
+    const rightIndex = (meIndex + 1) % 4;
 
     topPlayer.textContent =
-        names[topIndex] || "Partner";
+        players[topIndex] || "—";
 
     leftPlayer.textContent =
-        names[leftIndex] || "Lewy";
+        players[leftIndex] || "—";
 
     rightPlayer.textContent =
-        names[rightIndex] || "Prawy";
+        players[rightIndex] || "—";
+
+    currentPlayerName.textContent =
+        players[meIndex] || "Ty";
 }
 
+function findMyPlayerIndex(state) {
+    if (!state || !Array.isArray(state.players)) {
+        return -1;
+    }
 
-/* =========================
-   ATUT
-========================= */
+    const index = state.players.findIndex(
+        player => player.socketId === mySocketId
+    );
+
+    return index;
+}
 
 function renderTrump(state) {
-
     if (!state.trump) {
-
-        trumpDisplay.textContent =
-            "-";
-
+        trumpDisplay.textContent = "—";
         return;
     }
 
-    const suit =
-        state.trump;
-
-    trumpDisplay.textContent =
-        `${suitSymbols[suit] || suit} ${
-            state.suitNames?.[suit] ||
-            suitNames[suit] ||
-            ""
-        }`;
+    trumpDisplay.textContent = state.trump;
+    trumpDisplay.className =
+        (state.trump === "♥" || state.trump === "♦")
+            ? "red"
+            : "black";
 }
 
 
 /* =========================
-   KARTY NA STOLE
+   PLAYED CARDS
 ========================= */
 
 function renderPlayedCards(state) {
-
     playedCards.innerHTML = "";
 
-    const trick =
-        state.trick || [];
+    const trick = Array.isArray(state.trick)
+        ? state.trick
+        : [];
 
-    trick.forEach(
-        (entry, index) => {
-
-            const card =
-                entry.card ||
-                entry;
-
-            const element =
-                createCardElement(
-                    card
-                );
-
-            element.classList.add(
-                `played-card`,
-                `card-${index}`
-            );
-
-            playedCards.appendChild(
-                element
-            );
+    trick.forEach(play => {
+        if (!play || !play.card) {
+            return;
         }
-    );
+
+        const card = play.card;
+
+        const element = document.createElement("div");
+
+        element.className =
+            `playedCard ${cardClass(card)}`;
+
+        const playerName =
+            play.playerName ||
+            play.name ||
+            (
+                Array.isArray(state.playerNames)
+                    ? state.playerNames[play.playerIndex]
+                    : null
+            ) ||
+            "Gracz";
+
+        element.innerHTML =
+            `<span class="playedBy">
+                ${escapeHtml(playerName)}
+             </span>
+             <span class="cardSymbol">
+                ${escapeHtml(cardSymbol(card))}
+             </span>`;
+
+        playedCards.appendChild(element);
+    });
 }
 
 
 /* =========================
-   MOJE KARTY
+   HAND
 ========================= */
 
-function renderMyCards(state) {
-
+function renderHand(state) {
     myCards.innerHTML = "";
 
-    const hand =
-        state.hand || [];
+    const hand = Array.isArray(state.hand)
+        ? state.hand
+        : [];
 
-    hand.forEach(
-        card => {
+    if (!hand.length) {
+        return;
+    }
 
-            const element =
-                createCardElement(
-                    card
-                );
+    hand.forEach(card => {
+        const button = document.createElement("button");
 
-            const legal =
-                isCardLegalFromState(
-                    state,
-                    card
-                );
+        button.type = "button";
 
+        button.className =
+            `card ${cardClass(card)}`;
+
+        const legal = isLegalClientPlay(state, card);
+
+        if (legal) {
+            button.classList.add("playable");
+        } else {
+            button.classList.add("disabled");
+        }
+
+        button.innerHTML =
+            `<span class="cardSymbol">
+                ${escapeHtml(cardSymbol(card))}
+             </span>`;
+
+        button.title =
+            legal
+                ? `Zagraj ${cardSymbol(card)}`
+                : "Tej karty nie możesz teraz zagrać";
+
+        button.addEventListener("click", () => {
             if (!legal) {
-
-                element.classList.add(
-                    "disabled"
-                );
+                return;
             }
 
-            element.addEventListener(
-                "click",
-                () => {
+            playCard(card);
+        });
 
-                    if (!legal) {
-
-                        showTemporaryMessage(
-                            "Tej karty nie możesz teraz zagrać."
-                        );
-
-                        return;
-                    }
-
-                    socket.emit(
-                        "playCard",
-                        {
-                            suit: card.suit,
-                            rank: card.rank
-                        }
-                    );
-                }
-            );
-
-            myCards.appendChild(
-                element
-            );
-        }
-    );
+        myCards.appendChild(button);
+    });
 }
 
 
 /* =========================
-   KARTA
+   GAME INFO
 ========================= */
 
-function createCardElement(card) {
+function renderGameInfo(state) {
+    let text = "";
 
-    const element =
-        document.createElement("div");
-
-    element.className =
-        "card";
-
-    const suit =
-        card.suit || "";
-
-    const rank =
-        card.rank || "";
-
-    if (
-        suit === "♥" ||
-        suit === "♦"
+    if (state.currentPlayerName) {
+        text =
+            `Ruch: ${state.currentPlayerName}`;
+    } else if (
+        Number.isInteger(state.currentPlayer)
+        && Array.isArray(state.playerNames)
     ) {
-        element.classList.add(
-            "red"
-        );
+        text =
+            `Ruch: ${
+                state.playerNames[state.currentPlayer] || "—"
+            }`;
+    }
+
+    if (state.message) {
+        text = state.message;
+    }
+
+    if (state.gameMessage) {
+        text = state.gameMessage;
+    }
+
+    currentPlayerInfo.textContent = text;
+
+    if (state.gameMessage) {
+        gameMessage.textContent =
+            state.gameMessage;
+    } else if (state.message) {
+        gameMessage.textContent =
+            state.message;
     } else {
-        element.classList.add(
-            "card-black"
-        );
+        gameMessage.textContent = "";
     }
-
-    const rankElement =
-        document.createElement("div");
-
-    rankElement.className =
-        "card-rank";
-
-    rankElement.textContent =
-        rank;
-
-    const suitElement =
-        document.createElement("div");
-
-    suitElement.className =
-        "card-suit";
-
-    suitElement.textContent =
-        suitSymbols[suit] || suit;
-
-    const valueElement =
-        document.createElement("div");
-
-    valueElement.className =
-        "card-value";
-
-    valueElement.textContent =
-        card.value ?? "";
-
-    element.appendChild(
-        rankElement
-    );
-
-    element.appendChild(
-        suitElement
-    );
-
-    element.appendChild(
-        valueElement
-    );
-
-    return element;
 }
 
 
 /* =========================
-   LEGALNOŚĆ KARTY
+   ACTIONS
 ========================= */
 
-function isCardLegalFromState(
-    state,
-    card
-) {
-
-    /*
-     * Jeżeli to nie moja kolej,
-     * niczego nie mogę zagrać.
-     */
-
-    if (
-        state.currentPlayer !==
-        state.playerIndex
-    ) {
-        return false;
+function playCard(card) {
+    if (!latestState || !card) {
+        return;
     }
 
-    if (
-        state.phase &&
-        state.phase !== "playing"
-    ) {
-        return false;
+    if (!isLegalClientPlay(latestState, card)) {
+        return;
     }
 
-    const trick =
-        state.trick || [];
-
-    if (!trick.length) {
-        return true;
-    }
-
-    const leadCard =
-        trick[0]?.card ||
-        trick[0];
-
-    if (!leadCard) {
-        return true;
-    }
-
-    const leadSuit =
-        leadCard.suit;
-
-    const hand =
-        state.hand || [];
-
-    const sameSuit =
-        hand.filter(
-            c =>
-                c.suit ===
-                leadSuit
-        );
-
-    /*
-     * Muszę dołożyć do koloru.
-     */
-
-    if (sameSuit.length) {
-
-        /*
-         * Sprawdzamy, czy mam kartę,
-         * która może pobić aktualnego zwycięzcę.
-         */
-
-        const winningEntry =
-            getCurrentWinningEntry(
-                state
-            );
-
-        if (!winningEntry) {
-
-            return card.suit ===
-                leadSuit;
-        }
-
-        const winningCard =
-            winningEntry.card ||
-            winningEntry;
-
-        const canBeat =
-            sameSuit.some(
-                c =>
-                    cardBeatsClient(
-                        c,
-                        winningCard,
-                        leadSuit,
-                        state.trump
-                    )
-            );
-
-        if (canBeat) {
-
-            return (
-                card.suit === leadSuit &&
-                cardBeatsClient(
-                    card,
-                    winningCard,
-                    leadSuit,
-                    state.trump
-                )
-            );
-        }
-
-        /*
-         * Nie mogę pobić —
-         * mogę zagrać dowolną kartę
-         * w kolorze wyjścia.
-         */
-
-        return card.suit ===
-            leadSuit;
-    }
-
-    /*
-     * Nie mam koloru wyjścia.
-     * Mogę zagrać dowolną kartę.
-     */
-
-    return true;
-}
-
-
-function getCurrentWinningEntry(state) {
-
-    const trick =
-        state.trick || [];
-
-    if (!trick.length) {
-        return null;
-    }
-
-    const leadCard =
-        trick[0]?.card ||
-        trick[0];
-
-    let winner =
-        trick[0];
-
-    for (let i = 1; i < trick.length; i++) {
-
-        const current =
-            trick[i];
-
-        const winnerCard =
-            winner.card ||
-            winner;
-
-        const currentCard =
-            current.card ||
-            current;
-
-        if (
-            cardBeatsClient(
-                currentCard,
-                winnerCard,
-                leadCard.suit,
-                state.trump
-            )
-        ) {
-            winner =
-                current;
-        }
-    }
-
-    return winner;
-}
-
-
-function cardBeatsClient(
-    candidate,
-    current,
-    leadSuit,
-    trump
-) {
-
-    if (!candidate || !current) {
-        return false;
-    }
-
-    /*
-     * Atut.
-     */
-
-    if (
-        candidate.suit === trump &&
-        current.suit !== trump
-    ) {
-        return true;
-    }
-
-    if (
-        candidate.suit !== trump &&
-        current.suit === trump
-    ) {
-        return false;
-    }
-
-    /*
-     * Różne kolory i żaden nie jest atutem.
-     */
-
-    if (
-        candidate.suit !== current.suit
-    ) {
-
-        return (
-            candidate.suit ===
-            leadSuit
-        );
-    }
-
-    /*
-     * Ten sam kolor.
-     */
-
-    const power = {
-        "A": 6,
-        "10": 5,
-        "K": 4,
-        "Q": 3,
-        "J": 2,
-        "9": 1
-    };
-
-    return (
-        (power[candidate.rank] || 0) >
-        (power[current.rank] || 0)
-    );
+    socket.emit("playCard", {
+        card
+    });
 }
 
 
 /* =========================
-   KOMUNIKAT
+   TEAM SELECTION
 ========================= */
 
-function renderMessage(state) {
+function chooseTeam(team) {
+    selectedTeam = team;
 
-    if (
-        state.currentPlayer ===
-        state.playerIndex
-    ) {
+    socket.emit("chooseTeam", {
+        team
+    });
 
-        if (state.phase === "playing") {
-
-            gameMessage.textContent =
-                "Twoja kolej — zagraj kartę.";
-
-        } else if (
-            state.phase === "trump"
-        ) {
-
-            gameMessage.textContent =
-                "Wybierz atu.";
-        }
-
+    if (team === 0) {
+        selectedTeamDisplay.textContent =
+            "Wybrano: Drużyna 1";
     } else {
-
-        const names =
-            state.playerNames || [];
-
-        const current =
-            names[state.currentPlayer];
-
-        if (current) {
-
-            gameMessage.textContent =
-                `Kolej gracza: ${current}`;
-
-        } else {
-
-            gameMessage.textContent =
-                "";
-        }
+        selectedTeamDisplay.textContent =
+            "Wybrano: Drużyna 2";
     }
 }
 
+team1Button.addEventListener("click", () => {
+    chooseTeam(0);
+});
 
-function showTemporaryMessage(
-    message
-) {
-
-    gameMessage.textContent =
-        message;
-
-    clearTimeout(
-        showTemporaryMessage.timer
-    );
-
-    showTemporaryMessage.timer =
-        setTimeout(
-            () => {
-
-                if (currentGameState) {
-                    renderMessage(
-                        currentGameState
-                    );
-                }
-
-            },
-            1800
-        );
-}
+team2Button.addEventListener("click", () => {
+    chooseTeam(1);
+});
 
 
 /* =========================
-   BŁĘDY Z SERWERA
+   JOIN / LEAVE
 ========================= */
 
-socket.on(
-    "errorMessage",
-    message => {
+joinButton.addEventListener("click", () => {
+    const nickname =
+        nicknameInput.value.trim();
 
-        const text =
-            String(message || "Wystąpił błąd.");
+    const room =
+        roomInput.value.trim();
 
-        /*
-         * Jeżeli jesteśmy na ekranie startowym.
-         */
-
-        if (
-            !startScreen.classList.contains(
-                "hidden"
-            )
-        ) {
-
-            startMessage.textContent =
-                text;
-
-            joinButton.disabled =
-                false;
-
-            return;
-        }
-
-        /*
-         * Lobby.
-         */
-
-        if (
-            !lobbyScreen.classList.contains(
-                "hidden"
-            )
-        ) {
-
-            lobbyStatus.textContent =
-                text;
-
-            botsButton.disabled =
-                false;
-
-            return;
-        }
-
-        /*
-         * Gra.
-         */
-
-        showTemporaryMessage(
-            text
-        );
+    if (!nickname) {
+        startMessage.textContent =
+            "Podaj nick.";
+        return;
     }
-);
+
+    if (!room) {
+        startMessage.textContent =
+            "Podaj nazwę pokoju.";
+        return;
+    }
+
+    startMessage.textContent = "";
+
+    socket.emit("joinRoom", {
+        nickname,
+        room
+    });
+});
+
+nicknameInput.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+        joinButton.click();
+    }
+});
+
+roomInput.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+        joinButton.click();
+    }
+});
+
+leaveButton.addEventListener("click", () => {
+    socket.emit("leaveRoom");
+
+    selectedTeam = null;
+    latestState = null;
+
+    showScreen(startScreen);
+});
 
 
 /* =========================
-   POŁĄCZENIE
+   START GAME / BOTS
 ========================= */
 
-socket.on(
-    "connect",
-    () => {
-
-        console.log(
-            "Połączono z serwerem:",
-            socket.id
-        );
-    }
-);
-
-socket.on(
-    "disconnect",
-    () => {
-
-        console.log(
-            "Rozłączono z serwerem."
-        );
-
-        /*
-         * Jeżeli byliśmy w grze,
-         * informujemy użytkownika.
-         */
-
-        if (
-            !gameScreen.classList.contains(
-                "hidden"
-            )
-        ) {
-
-            gameMessage.textContent =
-                "Połączenie z serwerem zostało przerwane.";
-        }
-    }
-);
+botsButton.addEventListener("click", () => {
+    socket.emit("startGameWithBots");
+});
 
 
 /* =========================
-   STARTOWY EKRAN
+   SOCKET
 ========================= */
 
-showScreen(
-    startScreen
-);
+socket.on("connect", () => {
+    mySocketId = socket.id;
+});
+
+socket.on("connect_error", () => {
+    startMessage.textContent =
+        "Nie udało się połączyć z serwerem.";
+});
+
+socket.on("errorMessage", message => {
+    const text =
+        typeof message === "string"
+            ? message
+            : message?.message || "Wystąpił błąd.";
+
+    startMessage.textContent = text;
+});
+
+socket.on("message", message => {
+    const text =
+        typeof message === "string"
+            ? message
+            : message?.message || "";
+
+    if (gameScreen.classList.contains("hidden")) {
+        lobbyStatus.textContent = text;
+    } else {
+        gameMessage.textContent = text;
+    }
+});
+
+socket.on("lobbyState", state => {
+    renderLobby(state);
+});
+
+socket.on("gameState", state => {
+    renderGame(state);
+});
+
+socket.on("state", state => {
+    if (!state) return;
+
+    latestState = state;
+
+    if (
+        state.phase === "lobby" ||
+        state.status === "lobby"
+    ) {
+        renderLobby(state);
+    } else {
+        renderGame(state);
+    }
+});
+
+socket.on("gameStarted", state => {
+    if (state) {
+        renderGame(state);
+    }
+});
+
+
+/* =========================
+   INITIAL
+========================= */
+
+showScreen(startScreen);
