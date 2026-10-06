@@ -1,12 +1,12 @@
 const {
-    SUITS,
     isLegalPlay
 } = require("./game");
 
-function fillBots(players) {
-    let botNumber = 1;
+let botNumber = 1;
 
+function fillBots(players) {
     while (players.length < 4) {
+
         players.push({
             socketId: `BOT_${Date.now()}_${botNumber}`,
             name: `Bot ${botNumber}`,
@@ -19,11 +19,17 @@ function fillBots(players) {
 }
 
 function chooseBotTrump(game, playerIndex) {
-    const hand = game.hands[playerIndex] || [];
+    const hand =
+        game.hands[playerIndex] || [];
 
-    if (hand.length === 0) {
-        return SUITS[0];
+    if (!hand.length) {
+        return "♥";
     }
+
+    /*
+     * Bot wybiera kolor, w którym ma
+     * najwięcej kart.
+     */
 
     const counts = {
         "♥": 0,
@@ -32,17 +38,16 @@ function chooseBotTrump(game, playerIndex) {
         "♠": 0
     };
 
-    /*
-     * Bot wybiera kolor, którego ma najwięcej.
-     */
     for (const card of hand) {
-        counts[card.suit]++;
+        if (counts[card.suit] !== undefined) {
+            counts[card.suit]++;
+        }
     }
 
-    let bestSuit = SUITS[0];
+    let bestSuit = "♥";
     let bestCount = -1;
 
-    for (const suit of SUITS) {
+    for (const suit of Object.keys(counts)) {
         if (counts[suit] > bestCount) {
             bestCount = counts[suit];
             bestSuit = suit;
@@ -53,57 +58,69 @@ function chooseBotTrump(game, playerIndex) {
 }
 
 function chooseBotCard(game, playerIndex) {
-    const hand = game.hands[playerIndex] || [];
+    const hand =
+        game.hands[playerIndex] || [];
 
-    if (hand.length === 0) {
+    if (!hand.length) {
         return null;
     }
 
     /*
-     * Najpierw szukamy wszystkich legalnych kart.
+     * Najpierw szukamy kart, które są legalne.
      */
-    const legalCards = [];
-
-    for (const card of hand) {
-        const result = isLegalPlay(
-            game,
-            playerIndex,
-            card
+    const legalCards =
+        hand.filter(card =>
+            isLegalPlay(
+                game,
+                playerIndex,
+                card
+            )
         );
 
-        if (result.ok) {
-            legalCards.push(card);
-        }
-    }
-
-    if (legalCards.length === 0) {
+    if (!legalCards.length) {
         return null;
     }
 
     /*
-     * Bot gra najniższą legalną kartę.
-     * Przy tej wersji gry jest to najprostsza
-     * bezpieczna strategia.
+     * Bot preferuje:
+     * - przy pierwszym wyjściu mocniejsze karty,
+     * - w pozostałych sytuacjach najtańszą legalną kartę.
      */
-    legalCards.sort((a, b) => {
-        if (a.value !== b.value) {
-            return a.value - b.value;
-        }
 
-        return 0;
-    });
+    if (game.trick.length === 0) {
 
-    return legalCards[0];
+        return [...legalCards]
+            .sort(
+                (a, b) =>
+                    b.value - a.value
+            )[0];
+    }
+
+    return [...legalCards]
+        .sort(
+            (a, b) =>
+                a.value - b.value
+        )[0];
 }
 
-function removeCardFromBot(game, playerIndex, card) {
-    const hand = game.hands[playerIndex] || [];
+function removeCardFromBot(
+    game,
+    playerIndex,
+    card
+) {
+    const hand =
+        game.hands[playerIndex];
 
-    const index = hand.findIndex(
-        handCard =>
-            handCard.suit === card.suit &&
-            handCard.rank === card.rank
-    );
+    if (!hand) {
+        return false;
+    }
+
+    const index =
+        hand.findIndex(
+            c =>
+                c.suit === card.suit &&
+                c.rank === card.rank
+        );
 
     if (index === -1) {
         return false;
