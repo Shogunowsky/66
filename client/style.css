@@ -40,6 +40,14 @@ button {
     min-height: 100vh;
 }
 
+#startScreen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+}
+
 .startCard,
 .lobbyCard {
     width: min(420px, calc(100% - 30px));
@@ -53,8 +61,8 @@ button {
 
 .startCard {
     position: relative;
-    top: 50%;
-    transform: translateY(-50%);
+    top: auto;
+    transform: none;
 }
 
 .startCard h1,
@@ -72,7 +80,9 @@ button {
 }
 
 .startCard input {
+    display: block;
     width: 100%;
+    height: 50px;
     margin-bottom: 12px;
     padding: 14px 15px;
     border: 1px solid #343c47;
@@ -89,6 +99,7 @@ button {
 .startCard button,
 .lobbyCard button {
     width: 100%;
+    min-height: 48px;
     padding: 13px 15px;
     border: 0;
     border-radius: 10px;
@@ -489,6 +500,15 @@ button {
 
 @media (max-width: 700px) {
 
+    #startScreen {
+        align-items: flex-start;
+        padding: 20px 0;
+    }
+
+    .startCard {
+        margin-top: 0;
+    }
+
     .gameContainer {
         padding: 8px;
     }
@@ -579,6 +599,12 @@ button {
 
 @media (max-width: 420px) {
 
+    #startScreen {
+        align-items: flex-start;
+        padding-top: 12px;
+        padding-bottom: 12px;
+    }
+
     .startCard,
     .lobbyCard {
         width: calc(100% - 20px);
@@ -588,6 +614,19 @@ button {
     .startCard h1,
     .lobbyCard h2 {
         font-size: 40px;
+    }
+
+    .startCard p {
+        margin-bottom: 20px;
+    }
+
+    .startCard input {
+        height: 48px;
+        padding: 12px 14px;
+    }
+
+    .startCard button {
+        min-height: 48px;
     }
 
     .gameTable {
@@ -602,5 +641,49 @@ button {
     .card {
         width: 50px;
         height: 75px;
+    }
+}
+
+
+/* =========================
+   VERY SHORT SCREENS
+========================= */
+
+@media (max-height: 600px) {
+
+    #startScreen {
+        align-items: flex-start;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        overflow-y: auto;
+    }
+
+    .startCard {
+        margin-top: 0;
+        padding-top: 20px;
+        padding-bottom: 20px;
+    }
+
+    .startCard h1 {
+        font-size: 36px;
+    }
+
+    .startCard p {
+        margin-bottom: 16px;
+    }
+
+    .startCard input {
+        height: 44px;
+        padding: 10px 13px;
+        margin-bottom: 8px;
+    }
+
+    .startCard button {
+        min-height: 44px;
+        padding: 10px 14px;
+    }
+
+    #startMessage {
+        margin-top: 8px;
     }
 }
