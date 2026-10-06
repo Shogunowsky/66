@@ -1,78 +1,52 @@
 const socket = io();
 
-const startScreen = document.getElementById("startScreen");
-const lobbyScreen = document.getElementById("lobbyScreen");
-const gameScreen = document.getElementById("gameScreen");
+const $ = id => document.getElementById(id);
 
-const nicknameInput = document.getElementById("nickname");
-const roomInput = document.getElementById("room");
-const joinButton = document.getElementById("joinButton");
+const startScreen = $("startScreen");
+const lobbyScreen = $("lobbyScreen");
+const gameScreen = $("gameScreen");
 
-const lobbyRoom = document.getElementById("lobbyRoom");
-const lobbyStatus = document.getElementById("lobbyStatus");
-const lobbyPlayers = document.getElementById("lobbyPlayers");
+const nicknameInput = $("nickname");
+const roomInput = $("room");
+const joinButton = $("joinButton");
 
-const team1Button = document.getElementById("team1Button");
-const team2Button = document.getElementById("team2Button");
-const selectedTeam = document.getElementById("selectedTeam");
+const lobbyRoom = $("lobbyRoom");
+const lobbyStatus = $("lobbyStatus");
+const lobbyPlayers = $("lobbyPlayers");
 
-const botsButton = document.getElementById("botsButton");
-const leaveButton = document.getElementById("leaveButton");
+const team1Button = $("team1Button");
+const team2Button = $("team2Button");
+const selectedTeam = $("selectedTeam");
 
-const trumpDisplay = document.getElementById("trumpDisplay");
+const botsButton = $("botsButton");
+const leaveButton = $("leaveButton");
 
-const team1Name = document.getElementById("team1Name");
-const team2Name = document.getElementById("team2Name");
+const trumpDisplay = $("trumpDisplay");
 
-const scoreTeam1 = document.getElementById("scoreTeam1");
-const scoreTeam2 = document.getElementById("scoreTeam2");
+const team1Name = $("team1Name");
+const team2Name = $("team2Name");
 
-const overallTeam1 = document.getElementById("overallTeam1");
-const overallTeam2 = document.getElementById("overallTeam2");
+const scoreTeam1 = $("scoreTeam1");
+const scoreTeam2 = $("scoreTeam2");
 
-const gamesTeam1 = document.getElementById("gamesTeam1");
-const gamesTeam2 = document.getElementById("gamesTeam2");
+const overallTeam1 = $("overallTeam1");
+const overallTeam2 = $("overallTeam2");
 
-const topPlayer = document.getElementById("topPlayer");
-const leftPlayer = document.getElementById("leftPlayer");
-const rightPlayer = document.getElementById("rightPlayer");
+const gamesTeam1 = $("gamesTeam1");
+const gamesTeam2 = $("gamesTeam2");
 
-const playedCards = document.getElementById("playedCards");
-const myCards = document.getElementById("myCards");
+const topPlayer = $("topPlayer");
+const leftPlayer = $("leftPlayer");
+const rightPlayer = $("rightPlayer");
 
-const gameMessage = document.getElementById("gameMessage");
+const playedCards = $("playedCards");
+const myCards = $("myCards");
+const gameMessage = $("gameMessage");
 
 let currentState = null;
 let myPlayerIndex = null;
 let myTeam = null;
 let currentRoom = null;
-
-
-/* =========================
-   EKRANY
-========================= */
-
-function showScreen(screen) {
-    startScreen.classList.add("hidden");
-    lobbyScreen.classList.add("hidden");
-    gameScreen.classList.add("hidden");
-
-    screen.classList.remove("hidden");
-}
-
-
-/* =========================
-   BŁĘDY
-========================= */
-
-function showError(message) {
-    alert(message);
-}
-
-
-/* =========================
-   KARTY
-========================= */
 
 const SUIT_NAMES = {
     "♥": "Czerwo",
@@ -81,158 +55,81 @@ const SUIT_NAMES = {
     "♠": "Wino"
 };
 
-function getSuitClass(suit) {
-    if (suit === "♥" || suit === "♦") {
-        return "red";
-    }
-
-    return "black";
-}
-
-function createCardElement(card, playable = false) {
-    const element = document.createElement("button");
-
-    element.type = "button";
-    element.className = "card";
-
-    if (getSuitClass(card.suit) === "red") {
-        element.classList.add("red");
-    }
-
-    if (playable) {
-        element.classList.add("playable");
-    }
-
-    const rank = document.createElement("span");
-
-    rank.className = "card-rank";
-    rank.textContent = card.rank;
-
-    const suit = document.createElement("span");
-
-    suit.className = "card-suit";
-    suit.textContent = card.suit;
-
-    const suitName = document.createElement("small");
-
-    suitName.className = "card-suit-name";
-    suitName.textContent =
-        SUIT_NAMES[card.suit] || "";
-
-    element.appendChild(rank);
-    element.appendChild(suit);
-    element.appendChild(suitName);
-
-    if (playable) {
-        element.addEventListener("click", () => {
-            socket.emit("playCard", card);
-        });
-    }
-
-    return element;
-}
-
 
 /* =========================
-   DOŁĄCZANIE DO POKOJU
+   EKRANY
 ========================= */
 
-joinButton.addEventListener("click", () => {
-    const name =
-        nicknameInput.value.trim();
+function showScreen(screen) {
+    if (!screen) return;
 
-    const roomId =
-        roomInput.value.trim().toUpperCase();
-
-    if (!name) {
-        showError("Podaj pseudonim.");
-        return;
-    }
-
-    if (!roomId) {
-        showError("Podaj pokój.");
-        return;
-    }
-
-    socket.emit("joinRoom", {
-        name,
-        roomId
+    [startScreen, lobbyScreen, gameScreen].forEach(element => {
+        if (element) {
+            element.classList.add("hidden");
+        }
     });
-});
 
-
-/* =========================
-   WYBÓR DRUŻYNY
-========================= */
-
-function setTeam(team) {
-    if (team !== 0 && team !== 1) {
-        return;
-    }
-
-    myTeam = team;
-
-    if (team === 0) {
-        selectedTeam.textContent =
-            "Wybrano: Drużyna 1";
-
-        team1Button.classList.add("selected");
-        team2Button.classList.remove("selected");
-    } else {
-        selectedTeam.textContent =
-            "Wybrano: Drużyna 2";
-
-        team1Button.classList.remove("selected");
-        team2Button.classList.add("selected");
-    }
-
-    socket.emit("chooseTeam", team);
+    screen.classList.remove("hidden");
 }
 
-team1Button.addEventListener(
-    "click",
-    () => setTeam(0)
-);
-
-team2Button.addEventListener(
-    "click",
-    () => setTeam(1)
-);
-
 
 /* =========================
-   BOTY
+   START
 ========================= */
 
-botsButton.addEventListener("click", () => {
-    socket.emit("startWithBots");
-});
+showScreen(startScreen);
 
 
 /* =========================
-   OPUSZCZANIE
+   WEJŚCIE DO POKOJU
 ========================= */
 
-leaveButton.addEventListener("click", () => {
-    socket.emit("leaveRoom");
+if (joinButton) {
+    joinButton.addEventListener("click", () => {
+        const name = nicknameInput
+            ? nicknameInput.value.trim()
+            : "";
 
-    currentState = null;
-    myPlayerIndex = null;
-    myTeam = null;
+        const roomId = roomInput
+            ? roomInput.value.trim().toUpperCase()
+            : "";
 
-    showScreen(startScreen);
-});
+        if (!name) {
+            alert("Podaj pseudonim.");
+            return;
+        }
+
+        if (!roomId) {
+            alert("Podaj pokój.");
+            return;
+        }
+
+        joinButton.disabled = true;
+        joinButton.textContent = "ŁĄCZENIE...";
+
+        socket.emit("joinRoom", {
+            name,
+            roomId
+        });
+    });
+}
 
 
 /* =========================
-   SOCKET — DOŁĄCZONO
+   DOŁĄCZONO
 ========================= */
 
 socket.on("joinedRoom", data => {
     currentRoom = data.roomId;
 
-    lobbyRoom.textContent =
-        data.roomId;
+    if (lobbyRoom) {
+        lobbyRoom.textContent = data.roomId;
+    }
+
+    if (joinButton) {
+        joinButton.disabled = false;
+        joinButton.textContent = "WEJDŹ DO GRY";
+    }
 
     showScreen(lobbyScreen);
 });
@@ -243,56 +140,124 @@ socket.on("joinedRoom", data => {
 ========================= */
 
 socket.on("lobbyState", data => {
-    renderLobby(data);
-});
+    if (lobbyRoom) {
+        lobbyRoom.textContent =
+            data.roomId || currentRoom || "—";
+    }
 
-function renderLobby(data) {
-    lobbyRoom.textContent =
-        data.roomId || currentRoom || "—";
+    if (lobbyStatus) {
+        lobbyStatus.textContent =
+            `Oczekiwanie na graczy: ${data.playerCount}/4`;
+    }
 
-    lobbyStatus.textContent =
-        `Oczekiwanie na graczy: ${data.playerCount}/4`;
+    if (lobbyPlayers) {
+        lobbyPlayers.innerHTML = "";
 
-    lobbyPlayers.innerHTML = "";
+        for (const player of data.players || []) {
+            const row = document.createElement("div");
 
-    for (const player of data.players || []) {
-        const row =
-            document.createElement("div");
+            row.className = "lobby-player";
 
-        row.className =
-            "lobby-player";
+            const name = document.createElement("span");
 
-        const name =
-            document.createElement("span");
+            name.textContent = player.name;
 
-        name.textContent =
-            player.name;
+            if (player.isBot) {
+                name.textContent += " 🤖";
+            }
 
-        if (player.isBot) {
-            name.textContent += " 🤖";
+            const team = document.createElement("span");
+
+            if (player.team === 0) {
+                team.textContent = "Drużyna 1";
+            } else if (player.team === 1) {
+                team.textContent = "Drużyna 2";
+            } else {
+                team.textContent = "brak drużyny";
+            }
+
+            row.appendChild(name);
+            row.appendChild(team);
+
+            lobbyPlayers.appendChild(row);
         }
-
-        const team =
-            document.createElement("span");
-
-        if (player.team === 0) {
-            team.textContent =
-                "Drużyna 1";
-        } else if (player.team === 1) {
-            team.textContent =
-                "Drużyna 2";
-        } else {
-            team.textContent =
-                "brak drużyny";
-        }
-
-        row.appendChild(name);
-        row.appendChild(team);
-
-        lobbyPlayers.appendChild(row);
     }
 
     showScreen(lobbyScreen);
+});
+
+
+/* =========================
+   DRUŻYNY
+========================= */
+
+function chooseTeam(team) {
+    myTeam = team;
+
+    if (selectedTeam) {
+        selectedTeam.textContent =
+            team === 0
+                ? "Wybrano: Drużyna 1"
+                : "Wybrano: Drużyna 2";
+    }
+
+    if (team1Button) {
+        team1Button.classList.toggle(
+            "selected",
+            team === 0
+        );
+    }
+
+    if (team2Button) {
+        team2Button.classList.toggle(
+            "selected",
+            team === 1
+        );
+    }
+
+    socket.emit("chooseTeam", team);
+}
+
+if (team1Button) {
+    team1Button.addEventListener(
+        "click",
+        () => chooseTeam(0)
+    );
+}
+
+if (team2Button) {
+    team2Button.addEventListener(
+        "click",
+        () => chooseTeam(1)
+    );
+}
+
+
+/* =========================
+   BOTY
+========================= */
+
+if (botsButton) {
+    botsButton.addEventListener("click", () => {
+        socket.emit("startWithBots");
+    });
+}
+
+
+/* =========================
+   OPUSZCZANIE
+========================= */
+
+if (leaveButton) {
+    leaveButton.addEventListener("click", () => {
+        socket.emit("leaveRoom");
+
+        currentState = null;
+        myPlayerIndex = null;
+        myTeam = null;
+
+        showScreen(startScreen);
+    });
 }
 
 
@@ -322,8 +287,7 @@ socket.on("gameState", state => {
     if (
         typeof state.myTeam === "number"
     ) {
-        myTeam =
-            state.myTeam;
+        myTeam = state.myTeam;
     }
 
     renderGame(state);
@@ -331,55 +295,52 @@ socket.on("gameState", state => {
 
 
 /* =========================
-   OBIERANIE KOLORU
+   OBIERANIE
 ========================= */
 
 socket.on("chooseTrump", data => {
-    showTrumpChooser(
-        data.hand || []
-    );
+    showTrumpChooser();
 });
 
 
 /* =========================
-   BŁĄD Z SERWERA
+   BŁĘDY
 ========================= */
 
 socket.on("errorMessage", message => {
-    showError(message);
+    alert(message);
+
+    if (joinButton) {
+        joinButton.disabled = false;
+        joinButton.textContent = "WEJDŹ DO GRY";
+    }
 });
 
 
 /* =========================
-   RENDER GRY
+   GRA
 ========================= */
 
 function renderGame(state) {
-    renderTrump(state);
+    if (trumpDisplay) {
+        if (state.trump) {
+            trumpDisplay.textContent =
+                `Obrany kolor: ${state.trump} ${SUIT_NAMES[state.trump]}`;
+        } else {
+            trumpDisplay.textContent =
+                "Obrany kolor: —";
+        }
+    }
+
     renderScores(state);
     renderPlayers(state);
     renderTrick(state);
     renderHand(state);
 
-    gameMessage.textContent =
-        state.message || "—";
-}
-
-
-/* =========================
-   ATUT
-========================= */
-
-function renderTrump(state) {
-    if (!state.trump) {
-        trumpDisplay.textContent =
-            "Obrany kolor: —";
-
-        return;
+    if (gameMessage) {
+        gameMessage.textContent =
+            state.message || "—";
     }
-
-    trumpDisplay.textContent =
-        `Obrany kolor: ${state.trump} ${SUIT_NAMES[state.trump]}`;
 }
 
 
@@ -388,63 +349,64 @@ function renderTrump(state) {
 ========================= */
 
 function renderScores(state) {
-    team1Name.textContent =
-        state.teamNames?.[0] ||
-        "Drużyna 1";
+    if (team1Name) {
+        team1Name.textContent =
+            state.teamNames?.[0] ||
+            "Drużyna 1";
+    }
 
-    team2Name.textContent =
-        state.teamNames?.[1] ||
-        "Drużyna 2";
+    if (team2Name) {
+        team2Name.textContent =
+            state.teamNames?.[1] ||
+            "Drużyna 2";
+    }
 
-    scoreTeam1.textContent =
-        state.scores?.[0] ?? 0;
+    if (scoreTeam1) {
+        scoreTeam1.textContent =
+            state.scores?.[0] ?? 0;
+    }
 
-    scoreTeam2.textContent =
-        state.scores?.[1] ?? 0;
+    if (scoreTeam2) {
+        scoreTeam2.textContent =
+            state.scores?.[1] ?? 0;
+    }
 
-    overallTeam1.textContent =
-        state.overallScores?.[0] ?? 0;
+    if (overallTeam1) {
+        overallTeam1.textContent =
+            state.overallScores?.[0] ?? 0;
+    }
 
-    overallTeam2.textContent =
-        state.overallScores?.[1] ?? 0;
+    if (overallTeam2) {
+        overallTeam2.textContent =
+            state.overallScores?.[1] ?? 0;
+    }
 
-    gamesTeam1.textContent =
-        state.gameWins?.[0] ?? 0;
+    if (gamesTeam1) {
+        gamesTeam1.textContent =
+            state.gameWins?.[0] ?? 0;
+    }
 
-    gamesTeam2.textContent =
-        state.gameWins?.[1] ?? 0;
+    if (gamesTeam2) {
+        gamesTeam2.textContent =
+            state.gameWins?.[1] ?? 0;
+    }
 }
 
 
 /* =========================
-   GRACZE PRZY STOLE
+   GRACZE
 ========================= */
 
 function renderPlayers(state) {
     const players =
         state.players || [];
 
-    if (players.length < 4) {
-        return;
-    }
-
     if (
-        myPlayerIndex === null ||
-        myPlayerIndex === undefined
+        players.length < 4 ||
+        myPlayerIndex === null
     ) {
         return;
     }
-
-    /*
-     * Układ serwera:
-     *
-     * 0 = drużyna 1
-     * 1 = drużyna 2
-     * 2 = drużyna 1
-     * 3 = drużyna 2
-     *
-     * Partner jest więc naprzeciwko.
-     */
 
     const topIndex =
         (myPlayerIndex + 2) % 4;
@@ -455,28 +417,33 @@ function renderPlayers(state) {
     const rightIndex =
         (myPlayerIndex + 3) % 4;
 
-    topPlayer.textContent =
-        players[topIndex]?.name || "—";
+    if (topPlayer) {
+        topPlayer.textContent =
+            players[topIndex]?.name || "—";
+    }
 
-    leftPlayer.textContent =
-        players[leftIndex]?.name || "—";
+    if (leftPlayer) {
+        leftPlayer.textContent =
+            players[leftIndex]?.name || "—";
+    }
 
-    rightPlayer.textContent =
-        players[rightIndex]?.name || "—";
+    if (rightPlayer) {
+        rightPlayer.textContent =
+            players[rightIndex]?.name || "—";
+    }
 }
 
 
 /* =========================
-   ZAGRANE KARTY
+   STÓŁ
 ========================= */
 
 function renderTrick(state) {
+    if (!playedCards) return;
+
     playedCards.innerHTML = "";
 
-    const trick =
-        state.trick || [];
-
-    for (const play of trick) {
+    for (const play of state.trick || []) {
         const wrapper =
             document.createElement("div");
 
@@ -498,8 +465,7 @@ function renderTrick(state) {
         player.textContent =
             state.players?.[
                 play.playerIndex
-            ]?.name ||
-            `Gracz ${play.playerIndex + 1}`;
+            ]?.name || "Gracz";
 
         wrapper.appendChild(card);
         wrapper.appendChild(player);
@@ -514,40 +480,105 @@ function renderTrick(state) {
 ========================= */
 
 function renderHand(state) {
+    if (!myCards) return;
+
     myCards.innerHTML = "";
 
-    const cards =
-        state.hand || [];
-
-    for (const card of cards) {
+    for (const card of state.hand || []) {
         const playable =
             state.phase === "playing" &&
             state.currentPlayer ===
                 state.playerIndex;
 
-        const element =
+        myCards.appendChild(
             createCardElement(
                 card,
                 playable
-            );
-
-        myCards.appendChild(element);
+            )
+        );
     }
 }
 
 
 /* =========================
-   OKNO OBIERANIA
+   KARTA
 ========================= */
 
-function showTrumpChooser(cards) {
-    const old =
+function createCardElement(card, playable) {
+    const button =
+        document.createElement("button");
+
+    button.type = "button";
+    button.className = "card";
+
+    if (
+        card.suit === "♥" ||
+        card.suit === "♦"
+    ) {
+        button.classList.add("red");
+    }
+
+    if (playable) {
+        button.classList.add("playable");
+
+        button.addEventListener(
+            "click",
+            () => {
+                socket.emit(
+                    "playCard",
+                    card
+                );
+            }
+        );
+    }
+
+    const rank =
+        document.createElement("span");
+
+    rank.className =
+        "card-rank";
+
+    rank.textContent =
+        card.rank;
+
+    const suit =
+        document.createElement("span");
+
+    suit.className =
+        "card-suit";
+
+    suit.textContent =
+        card.suit;
+
+    const name =
+        document.createElement("small");
+
+    name.className =
+        "card-suit-name";
+
+    name.textContent =
+        SUIT_NAMES[card.suit];
+
+    button.appendChild(rank);
+    button.appendChild(suit);
+    button.appendChild(name);
+
+    return button;
+}
+
+
+/* =========================
+   OBRAJ
+========================= */
+
+function showTrumpChooser() {
+    const existing =
         document.getElementById(
             "trumpChooser"
         );
 
-    if (old) {
-        old.remove();
+    if (existing) {
+        existing.remove();
     }
 
     const overlay =
@@ -571,15 +602,11 @@ function showTrumpChooser(cards) {
     title.textContent =
         "OBIERAJ";
 
-    box.appendChild(title);
-
-    const info =
+    const text =
         document.createElement("p");
 
-    info.textContent =
+    text.textContent =
         "Wybierz kolor atu.";
-
-    box.appendChild(info);
 
     const buttons =
         document.createElement("div");
@@ -596,18 +623,10 @@ function showTrumpChooser(cards) {
         const button =
             document.createElement("button");
 
-        button.type =
-            "button";
+        button.type = "button";
 
         button.className =
             "trump-button";
-
-        if (
-            suit === "♥" ||
-            suit === "♦"
-        ) {
-            button.classList.add("red");
-        }
 
         button.innerHTML = `
             <strong>${suit}</strong>
@@ -629,15 +648,11 @@ function showTrumpChooser(cards) {
         buttons.appendChild(button);
     }
 
+    box.appendChild(title);
+    box.appendChild(text);
     box.appendChild(buttons);
+
     overlay.appendChild(box);
 
     document.body.appendChild(overlay);
 }
-
-
-/* =========================
-   START
-========================= */
-
-showScreen(startScreen);
