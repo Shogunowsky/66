@@ -1,3 +1,4 @@
+```js
 const express = require("express");
 const http = require("http");
 const path = require("path");
@@ -19,10 +20,8 @@ const {
 const {
     fillBots,
     chooseBotTrump,
-    chooseBotCard,
-    removeCardFromBot
+    chooseBotCard
 } = require("./bot");
-
 
 const app = express();
 
@@ -30,10 +29,8 @@ const server = http.createServer(app);
 
 const io = new Server(server);
 
-
 const PORT =
     process.env.PORT || 3000;
-
 
 /* =========================
    STATIC
@@ -45,32 +42,23 @@ app.use(
     )
 );
 
-
 /* =========================
    ROOMS
 ========================= */
 
 const rooms = new Map();
 
-
 function getRoom(roomName) {
     return rooms.get(roomName);
 }
 
-
 function createRoom(roomName) {
-
     const room = {
         name: roomName,
-
         players: [],
-
         game: null,
-
         started: false,
-
         botTimer: null,
-
         lufaTimer: null
     };
 
@@ -82,13 +70,11 @@ function createRoom(roomName) {
     return room;
 }
 
-
 /* =========================
    ROOM STATE
 ========================= */
 
 function getLobbyState(room) {
-
     return {
         roomName: room.name,
 
@@ -109,25 +95,20 @@ function getLobbyState(room) {
     };
 }
 
-
 function sendLobby(room) {
-
     io.to(room.name).emit(
         "lobbyState",
         getLobbyState(room)
     );
 }
 
-
 function sendGameState(room) {
-
     if (!room.game) {
         return;
     }
 
     room.players.forEach(
         player => {
-
             if (
                 player.isBot ||
                 !player.socketId
@@ -147,6 +128,10 @@ function sendGameState(room) {
                         player.socketId
                 );
 
+            if (playerIndex === -1) {
+                return;
+            }
+
             state.myPlayerIndex =
                 playerIndex;
 
@@ -165,19 +150,16 @@ function sendGameState(room) {
     );
 }
 
-
 /* =========================
    MESSAGE
 ========================= */
 
 function sendError(socket, message) {
-
     socket.emit(
         "errorMessage",
         message
     );
 }
-
 
 /* =========================
    TEAM
@@ -188,7 +170,6 @@ function chooseTeam(
     socketId,
     team
 ) {
-
     if (
         team !== 0 &&
         team !== 1
@@ -213,6 +194,13 @@ function chooseTeam(
         };
     }
 
+    if (room.started) {
+        return {
+            ok: false,
+            error: "Gra już się rozpoczęła."
+        };
+    }
+
     const teamCount =
         room.players.filter(
             p =>
@@ -234,13 +222,11 @@ function chooseTeam(
     };
 }
 
-
 /* =========================
    BOT TEAMS
 ========================= */
 
 function assignBotTeams(room) {
-
     const teamCounts = [
         room.players.filter(
             p => p.team === 0
@@ -251,15 +237,12 @@ function assignBotTeams(room) {
         ).length
     ];
 
-
     const bots =
         room.players.filter(
             p => p.isBot
         );
 
-
     for (const bot of bots) {
-
         if (
             teamCounts[0] <=
             teamCounts[1]
@@ -272,23 +255,15 @@ function assignBotTeams(room) {
         }
     }
 
-
-    /*
-     * Jeżeli po wyborach ludzi
-     * nadal jest nierówno,
-     * poprawiamy boty.
-     */
     let safety = 10;
 
     while (
-        teamCounts[0] !== 2 ||
-        teamCounts[1] !== 2
+        (
+            teamCounts[0] !== 2 ||
+            teamCounts[1] !== 2
+        ) &&
+        safety-- > 0
     ) {
-
-        if (--safety <= 0) {
-            break;
-        }
-
         const from =
             teamCounts[0] > 2
                 ? 0
@@ -327,13 +302,11 @@ function assignBotTeams(room) {
     }
 }
 
-
 /* =========================
    START GAME
 ========================= */
 
 function startGame(room) {
-
     if (room.started) {
         return {
             ok: false,
@@ -341,15 +314,13 @@ function startGame(room) {
         };
     }
 
-
     if (room.players.length !== 4) {
-
         return {
             ok: false,
-            error: "Do rozpoczęcia potrzebnych jest 4 graczy."
+            error:
+                "Do rozpoczęcia potrzebnych jest 4 graczy."
         };
     }
-
 
     const team0 =
         room.players.filter(
@@ -361,12 +332,10 @@ function startGame(room) {
             p => p.team === 1
         );
 
-
     if (
         team0.length !== 2 ||
         team1.length !== 2
     ) {
-
         return {
             ok: false,
             error:
@@ -374,14 +343,13 @@ function startGame(room) {
         };
     }
 
-
     /*
-     * Ustawiamy miejsca przy stole:
+     * Układ przy stole:
      *
-     * drużyna 0
-     * drużyna 1
-     * drużyna 0
-     * drużyna 1
+     * Drużyna 1
+     * Drużyna 2
+     * Drużyna 1
+     * Drużyna 2
      */
     room.players = [
         team0[0],
@@ -390,47 +358,38 @@ function startGame(room) {
         team1[1]
     ];
 
-
     room.started = true;
-
 
     room.game =
         createGame(
             room.players
         );
 
-
     dealInitialCards(
         room.game
     );
-
 
     sendGameState(
         room
     );
 
-
     scheduleBotTurn(
         room
     );
-
 
     return {
         ok: true
     };
 }
 
-
 /* =========================
    BOT TURN
 ========================= */
 
 function scheduleBotTurn(room) {
-
     clearTimeout(
         room.botTimer
     );
-
 
     if (
         !room.game ||
@@ -439,35 +398,46 @@ function scheduleBotTurn(room) {
         return;
     }
 
-
     const game =
         room.game;
 
+    /*
+     * Podczas wyboru atutu
+     * używamy CHOOSER.
+     */
+    let playerIndex =
+        game.currentPlayer;
+
+    if (
+        game.phase === "trump" &&
+        Number.isInteger(
+            game.chooser
+        )
+    ) {
+        playerIndex =
+            game.chooser;
+    }
 
     const player =
         game.players[
-            game.currentPlayer
+            playerIndex
         ];
-
 
     if (!player) {
         return;
     }
 
-
     if (!player.isBot) {
         return;
     }
 
-
     /*
-     * Nie ruszamy bota podczas
-     * okna Lufy.
+     * Podczas Lufy bot nie wykonuje
+     * zwykłego ruchu.
      */
     if (
         game.phase === "lufa"
     ) {
-
         scheduleLufaWindow(
             room
         );
@@ -475,30 +445,24 @@ function scheduleBotTurn(room) {
         return;
     }
 
-
     room.botTimer =
         setTimeout(
             () => {
-
                 processBotTurn(
                     room
                 );
-
             },
             700
         );
 }
-
 
 /* =========================
    BOT ACTION
 ========================= */
 
 function processBotTurn(room) {
-
     const game =
         room.game;
-
 
     if (
         !game ||
@@ -507,16 +471,27 @@ function processBotTurn(room) {
         return;
     }
 
-
-    const playerIndex =
+    let playerIndex =
         game.currentPlayer;
 
+    /*
+     * W fazie wyboru obierający
+     * jest zapisany jako chooser.
+     */
+    if (
+        game.phase === "trump" &&
+        Number.isInteger(
+            game.chooser
+        )
+    ) {
+        playerIndex =
+            game.chooser;
+    }
 
     const player =
         game.players[
             playerIndex
         ];
-
 
     if (
         !player ||
@@ -525,20 +500,18 @@ function processBotTurn(room) {
         return;
     }
 
+    /* =========================
+       BOT OBIERA ATUT
+    ========================= */
 
-    /*
-     * BOT OBIERA
-     */
     if (
         game.phase === "trump"
     ) {
-
         const trump =
             chooseBotTrump(
                 game,
                 playerIndex
             );
-
 
         const result =
             chooseTrump(
@@ -547,44 +520,37 @@ function processBotTurn(room) {
                 trump
             );
 
-
         if (!result.ok) {
             return;
         }
-
 
         sendGameState(
             room
         );
 
-
         scheduleLufaWindow(
             room
         );
 
-
         return;
     }
 
+    /* =========================
+       BOT GRA KARTĘ
+    ========================= */
 
-    /*
-     * BOT GRA
-     */
     if (
         game.phase === "playing"
     ) {
-
         const card =
             chooseBotCard(
                 game,
                 playerIndex
             );
 
-
         if (!card) {
             return;
         }
-
 
         const result =
             playCard(
@@ -593,25 +559,17 @@ function processBotTurn(room) {
                 card
             );
 
-
         if (!result.ok) {
             return;
         }
-
 
         sendGameState(
             room
         );
 
-
-        /*
-         * Po skończeniu rozdania
-         * czekamy chwilę i zaczynamy nowe.
-         */
         if (
             game.handFinished
         ) {
-
             scheduleNextHand(
                 room
             );
@@ -619,28 +577,23 @@ function processBotTurn(room) {
             return;
         }
 
-
         scheduleBotTurn(
             room
         );
     }
 }
 
-
 /* =========================
    LUFA TIMER
 ========================= */
 
 function scheduleLufaWindow(room) {
-
     clearTimeout(
         room.lufaTimer
     );
 
-
     const game =
         room.game;
-
 
     if (
         !game ||
@@ -648,17 +601,6 @@ function scheduleLufaWindow(room) {
     ) {
         return;
     }
-
-
-    /*
-     * Bot może zdecydować,
-     * czy rzucić Lufę.
-     *
-     * Na razie zachowujemy bota
-     * konserwatywnie: nie rzuca Lufy
-     * automatycznie.
-     */
-
 
     const remaining =
         Math.max(
@@ -667,30 +609,24 @@ function scheduleLufaWindow(room) {
             Date.now()
         );
 
-
     room.lufaTimer =
         setTimeout(
             () => {
-
                 finishLufa(
                     room
                 );
-
             },
             remaining
         );
 }
-
 
 /* =========================
    FINISH LUFA
 ========================= */
 
 function finishLufa(room) {
-
     const game =
         room.game;
-
 
     if (
         !game ||
@@ -699,32 +635,22 @@ function finishLufa(room) {
         return;
     }
 
-
     const result =
         finishLufaWindow(
             game
         );
 
-
     if (!result.ok) {
         return;
     }
-
 
     sendGameState(
         room
     );
 
-
-    /*
-     * Jeżeli rozpoczęła się
-     * druga faza Lufy,
-     * znowu czekamy 5 sekund.
-     */
     if (
         result.secondWindow
     ) {
-
         scheduleLufaWindow(
             room
         );
@@ -732,31 +658,23 @@ function finishLufa(room) {
         return;
     }
 
-
-    /*
-     * Rozpoczęła się normalna gra.
-     */
     scheduleBotTurn(
         room
     );
 }
-
 
 /* =========================
    NEXT HAND
 ========================= */
 
 function scheduleNextHand(room) {
-
     clearTimeout(
         room.botTimer
     );
 
-
     room.botTimer =
         setTimeout(
             () => {
-
                 if (
                     !room.game ||
                     !room.game.handFinished
@@ -764,26 +682,21 @@ function scheduleNextHand(room) {
                     return;
                 }
 
-
                 startNextHand(
                     room.game
                 );
-
 
                 sendGameState(
                     room
                 );
 
-
                 scheduleBotTurn(
                     room
                 );
-
             },
             2500
         );
 }
-
 
 /* =========================
    SOCKET CONNECTION
@@ -793,13 +706,13 @@ io.on(
     "connection",
     socket => {
 
-        /*
-         * JOIN
-         */
+        /* =========================
+           JOIN
+        ========================= */
+
         socket.on(
             "joinRoom",
             data => {
-
                 const nickname =
                     String(
                         data?.nickname || ""
@@ -810,7 +723,6 @@ io.on(
                         data?.room || ""
                     ).trim();
 
-
                 if (!nickname) {
                     sendError(
                         socket,
@@ -818,7 +730,6 @@ io.on(
                     );
                     return;
                 }
-
 
                 if (!roomName) {
                     sendError(
@@ -828,7 +739,6 @@ io.on(
                     return;
                 }
 
-
                 if (nickname.length > 20) {
                     sendError(
                         socket,
@@ -836,7 +746,6 @@ io.on(
                     );
                     return;
                 }
-
 
                 if (roomName.length > 20) {
                     sendError(
@@ -846,12 +755,10 @@ io.on(
                     return;
                 }
 
-
                 let room =
                     getRoom(
                         roomName
                     );
-
 
                 if (!room) {
                     room =
@@ -860,17 +767,13 @@ io.on(
                         );
                 }
 
-
-                if (
-                    room.started
-                ) {
+                if (room.started) {
                     sendError(
                         socket,
                         "Ta gra już się rozpoczęła."
                     );
                     return;
                 }
-
 
                 if (
                     room.players.length >= 4
@@ -882,7 +785,6 @@ io.on(
                     return;
                 }
 
-
                 const duplicate =
                     room.players.some(
                         p =>
@@ -891,7 +793,6 @@ io.on(
                             nickname.toLowerCase()
                     );
 
-
                 if (duplicate) {
                     sendError(
                         socket,
@@ -899,7 +800,6 @@ io.on(
                     );
                     return;
                 }
-
 
                 const player = {
                     socketId:
@@ -915,24 +815,19 @@ io.on(
                         false
                 };
 
-
                 room.players.push(
                     player
                 );
-
 
                 socket.join(
                     room.name
                 );
 
-
                 socket.data.roomName =
                     room.name;
 
-
                 socket.data.playerId =
                     socket.id;
-
 
                 sendLobby(
                     room
@@ -940,30 +835,26 @@ io.on(
             }
         );
 
+        /* =========================
+           TEAM
+        ========================= */
 
-        /*
-         * TEAM
-         */
         socket.on(
             "chooseTeam",
             data => {
-
                 const room =
                     getRoom(
                         socket.data.roomName
                     );
 
-
                 if (!room) {
                     return;
                 }
-
 
                 const team =
                     Number(
                         data?.team
                     );
-
 
                 const result =
                     chooseTeam(
@@ -972,9 +863,7 @@ io.on(
                         team
                     );
 
-
                 if (!result.ok) {
-
                     sendError(
                         socket,
                         result.error
@@ -982,7 +871,6 @@ io.on(
 
                     return;
                 }
-
 
                 sendLobby(
                     room
@@ -990,68 +878,50 @@ io.on(
             }
         );
 
+        /* =========================
+           START WITH BOTS
+        ========================= */
 
-        /*
-         * START WITH BOTS
-         */
         socket.on(
             "startGameWithBots",
             () => {
-
                 const room =
                     getRoom(
                         socket.data.roomName
                     );
 
-
                 if (!room) {
                     return;
                 }
-
 
                 if (room.started) {
                     return;
                 }
 
-
-                /*
-                 * Uzupełniamy brakujące miejsca botami.
-                 */
                 fillBots(
                     room.players
                 );
 
-
                 assignBotTeams(
                     room
                 );
-
 
                 const result =
                     startGame(
                         room
                     );
 
-
                 if (!result.ok) {
-
-                    /*
-                     * Jeżeli przez brak poprawnego
-                     * składu nie można rozpocząć,
-                     * usuwamy boty.
-                     */
                     room.players =
                         room.players.filter(
                             p =>
                                 !p.isBot
                         );
 
-
                     sendError(
                         socket,
                         result.error
                     );
-
 
                     sendLobby(
                         room
@@ -1060,26 +930,23 @@ io.on(
                     return;
                 }
 
-
                 sendGameState(
                     room
                 );
             }
         );
 
+        /* =========================
+           WYBÓR ATUTU
+        ========================= */
 
-        /*
-         * WYBÓR ATUTU
-         */
         socket.on(
             "chooseTrump",
             data => {
-
                 const room =
                     getRoom(
                         socket.data.roomName
                     );
-
 
                 if (
                     !room ||
@@ -1088,7 +955,6 @@ io.on(
                     return;
                 }
 
-
                 const playerIndex =
                     room.game.players.findIndex(
                         p =>
@@ -1096,13 +962,11 @@ io.on(
                             socket.id
                     );
 
-
                 if (
                     playerIndex === -1
                 ) {
                     return;
                 }
-
 
                 const result =
                     chooseTrump(
@@ -1111,9 +975,7 @@ io.on(
                         data?.trump
                     );
 
-
                 if (!result.ok) {
-
                     sendError(
                         socket,
                         result.error
@@ -1122,11 +984,9 @@ io.on(
                     return;
                 }
 
-
                 sendGameState(
                     room
                 );
-
 
                 scheduleLufaWindow(
                     room
@@ -1134,19 +994,17 @@ io.on(
             }
         );
 
+        /* =========================
+           LEPSZA / GORSZA
+        ========================= */
 
-        /*
-         * LEPSZA / GORSZA
-         */
         socket.on(
             "chooseSpecialMode",
             data => {
-
                 const room =
                     getRoom(
                         socket.data.roomName
                     );
-
 
                 if (
                     !room ||
@@ -1155,7 +1013,6 @@ io.on(
                     return;
                 }
 
-
                 const playerIndex =
                     room.game.players.findIndex(
                         p =>
@@ -1163,19 +1020,16 @@ io.on(
                             socket.id
                     );
 
-
                 if (
                     playerIndex === -1
                 ) {
                     return;
                 }
 
-
                 const mode =
                     String(
                         data?.mode || ""
                     ).toLowerCase();
-
 
                 const result =
                     chooseSpecialMode(
@@ -1184,9 +1038,7 @@ io.on(
                         mode
                     );
 
-
                 if (!result.ok) {
-
                     sendError(
                         socket,
                         result.error
@@ -1195,11 +1047,9 @@ io.on(
                     return;
                 }
 
-
                 sendGameState(
                     room
                 );
-
 
                 scheduleLufaWindow(
                     room
@@ -1207,19 +1057,17 @@ io.on(
             }
         );
 
+        /* =========================
+           LUFA
+        ========================= */
 
-        /*
-         * LUFA
-         */
         socket.on(
             "callLufa",
             () => {
-
                 const room =
                     getRoom(
                         socket.data.roomName
                     );
-
 
                 if (
                     !room ||
@@ -1228,7 +1076,6 @@ io.on(
                     return;
                 }
 
-
                 const playerIndex =
                     room.game.players.findIndex(
                         p =>
@@ -1236,13 +1083,11 @@ io.on(
                             socket.id
                     );
 
-
                 if (
                     playerIndex === -1
                 ) {
                     return;
                 }
-
 
                 const result =
                     callLufa(
@@ -1250,9 +1095,7 @@ io.on(
                         playerIndex
                     );
 
-
                 if (!result.ok) {
-
                     sendError(
                         socket,
                         result.error
@@ -1261,11 +1104,9 @@ io.on(
                     return;
                 }
 
-
                 sendGameState(
                     room
                 );
-
 
                 scheduleLufaWindow(
                     room
@@ -1273,19 +1114,17 @@ io.on(
             }
         );
 
+        /* =========================
+           Z POWROTEM
+        ========================= */
 
-        /*
-         * Z POWROTEM
-         */
         socket.on(
             "callBackLufa",
             () => {
-
                 const room =
                     getRoom(
                         socket.data.roomName
                     );
-
 
                 if (
                     !room ||
@@ -1294,7 +1133,6 @@ io.on(
                     return;
                 }
 
-
                 const playerIndex =
                     room.game.players.findIndex(
                         p =>
@@ -1302,13 +1140,11 @@ io.on(
                             socket.id
                     );
 
-
                 if (
                     playerIndex === -1
                 ) {
                     return;
                 }
-
 
                 const result =
                     callBackLufa(
@@ -1316,9 +1152,7 @@ io.on(
                         playerIndex
                     );
 
-
                 if (!result.ok) {
-
                     sendError(
                         socket,
                         result.error
@@ -1327,11 +1161,9 @@ io.on(
                     return;
                 }
 
-
                 sendGameState(
                     room
                 );
-
 
                 scheduleLufaWindow(
                     room
@@ -1339,19 +1171,17 @@ io.on(
             }
         );
 
+        /* =========================
+           PLAY CARD
+        ========================= */
 
-        /*
-         * PLAY CARD
-         */
         socket.on(
             "playCard",
             data => {
-
                 const room =
                     getRoom(
                         socket.data.roomName
                     );
-
 
                 if (
                     !room ||
@@ -1360,7 +1190,6 @@ io.on(
                     return;
                 }
 
-
                 const playerIndex =
                     room.game.players.findIndex(
                         p =>
@@ -1368,22 +1197,18 @@ io.on(
                             socket.id
                     );
 
-
                 if (
                     playerIndex === -1
                 ) {
                     return;
                 }
 
-
                 const card =
                     data?.card;
-
 
                 if (!card) {
                     return;
                 }
-
 
                 const result =
                     playCard(
@@ -1392,9 +1217,7 @@ io.on(
                         card
                     );
 
-
                 if (!result.ok) {
-
                     sendError(
                         socket,
                         result.error
@@ -1403,16 +1226,13 @@ io.on(
                     return;
                 }
 
-
                 sendGameState(
                     room
                 );
 
-
                 if (
                     room.game.handFinished
                 ) {
-
                     scheduleNextHand(
                         room
                     );
@@ -1420,35 +1240,32 @@ io.on(
                     return;
                 }
 
-
                 scheduleBotTurn(
                     room
                 );
             }
         );
 
+        /* =========================
+           LEAVE
+        ========================= */
 
-        /*
-         * LEAVE
-         */
         socket.on(
             "leaveRoom",
             () => {
-
                 leaveRoom(
                     socket
                 );
             }
         );
 
+        /* =========================
+           DISCONNECT
+        ========================= */
 
-        /*
-         * DISCONNECT
-         */
         socket.on(
             "disconnect",
             () => {
-
                 leaveRoom(
                     socket
                 );
@@ -1457,32 +1274,26 @@ io.on(
     }
 );
 
-
 /* =========================
    LEAVE ROOM
 ========================= */
 
 function leaveRoom(socket) {
-
     const roomName =
         socket.data.roomName;
-
 
     if (!roomName) {
         return;
     }
-
 
     const room =
         rooms.get(
             roomName
         );
 
-
     if (!room) {
         return;
     }
-
 
     room.players =
         room.players.filter(
@@ -1491,42 +1302,26 @@ function leaveRoom(socket) {
                 socket.id
         );
 
-
     socket.leave(
         room.name
     );
 
-
-    /*
-     * Gra jeszcze się nie rozpoczęła.
-     */
     if (!room.started) {
-
         if (
             room.players.length === 0
         ) {
-
             rooms.delete(
                 room.name
             );
-
         } else {
-
             sendLobby(
                 room
             );
         }
 
-
         return;
     }
 
-
-    /*
-     * Jeżeli człowiek wyszedł
-     * podczas gry, na razie kończymy
-     * pokój.
-     */
     clearTimeout(
         room.botTimer
     );
@@ -1535,7 +1330,6 @@ function leaveRoom(socket) {
         room.lufaTimer
     );
 
-
     io.to(
         room.name
     ).emit(
@@ -1543,23 +1337,16 @@ function leaveRoom(socket) {
         "Gracz opuścił grę."
     );
 
-
-    /*
-     * Prosta ochrona przed
-     * pozostawieniem uszkodzonego pokoju.
-     */
     if (
         room.players.filter(
             p => !p.isBot
         ).length === 0
     ) {
-
         rooms.delete(
             room.name
         );
     }
 }
-
 
 /* =========================
    START SERVER
@@ -1569,9 +1356,9 @@ server.listen(
     PORT,
     "0.0.0.0",
     () => {
-
         console.log(
             `66 server działa na porcie ${PORT}`
         );
     }
 );
+```
