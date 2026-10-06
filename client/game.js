@@ -1,491 +1,531 @@
-const SUITS = ["♥", "♦", "♣", "♠"];
+const socket = io();
 
-const SUIT_NAMES = {
-  "♥": "Czerwo",
-  "♦": "Dzwonek",
-  "♣": "Krzak",
-  "♠": "Wino"
-};
+let mySeat = null;
+let currentGameState = null;
 
-const RANKS = ["A", "10", "K", "Q", "J", "9"];
+const startScreen = document.getElementById("startScreen");
+const lobbyScreen = document.getElementById("lobbyScreen");
+const gameScreen = document.getElementById("gameScreen");
 
-const CARD_VALUES = {
-  A: 11,
-  10: 10,
-  K: 4,
-  Q: 3,
-  J: 2,
-  9: 0
-};
+const nicknameInput = document.getElementById("nickname");
+const roomInput = document.getElementById("room");
 
-const RANK_POWER = {
-  A: 6,
-  10: 5,
-  K: 4,
-  Q: 3,
-  J: 2,
-  9: 1
-};
+const joinButton = document.getElementById("joinButton");
+const leaveButton = document.getElementById("leaveButton");
 
-function createDeck() {
-  const deck = [];
+const lobbyRoom = document.getElementById("lobbyRoom");
+const lobbyPlayers = document.getElementById("lobbyPlayers");
 
-  for (const suit of SUITS) {
-    for (const rank of RANKS) {
-      deck.push({
-        suit,
-        rank,
-        id: `${rank}${suit}`
-      });
-    }
-  }
+const myCards = document.getElementById("myCards");
+const playedCards = document.getElementById("playedCards");
 
-  return deck;
-}
+const gameMessage = document.getElementById("gameMessage");
+const trumpDisplay = document.getElementById("trumpDisplay");
 
-function shuffle(deck) {
-  const copy = [...deck];
+const scoreTeam1 = document.getElementById("scoreTeam1");
+const scoreTeam2 = document.getElementById("scoreTeam2");
 
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+const topPlayer = document.getElementById("topPlayer");
+const leftPlayer = document.getElementById("leftPlayer");
+const rightPlayer = document.getElementById("rightPlayer");
 
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
 
-  return copy;
-}
+// =========================
+// WYBÓR ATU
+// =========================
 
-function createGame(players, firstChooser = 0) {
-  return {
-    players,
+const trumpButtons = document.createElement("div");
 
-    deck: [],
+trumpButtons.className = "trump-buttons";
 
-    trump: null,
+trumpButtons.innerHTML = `
+  <button type="button" data-suit="♥">♥ Czerwo</button>
+  <button type="button" data-suit="♦">♦ Dzwonek</button>
+  <button type="button" data-suit="♣">♣ Krzak</button>
+  <button type="button" data-suit="♠">♠ Wino</button>
+`;
 
-    chooser: firstChooser,
+document.body.appendChild(trumpButtons);
 
-    currentPlayer: firstChooser,
+trumpButtons.style.display = "none";
 
-    phase: "dealing",
-
-    hands: [[], [], [], []],
-
-    trick: [],
-
-    trickWinner: null,
-
-    teamPoints: [0, 0],
-
-    melds: [0, 0],
-
-    lastMessage: "Rozdawanie kart..."
-  };
-}
-
-/**
- * Pierwsze rozdanie:
- * każdy dostaje 3 karty.
- */
-function dealInitialCards(game) {
-  game.deck = shuffle(createDeck());
-
-  game.hands = [[], [], [], []];
-
-  for (let round = 0; round < 3; round++) {
-    for (let player = 0; player < 4; player++) {
-      game.hands[player].push(game.deck.pop());
-    }
-  }
-
-  game.phase = "trump";
-
-  game.currentPlayer = game.chooser;
-
-  game.lastMessage = `Gracz ${game.chooser + 1} wybiera atu.`;
-
-  return game;
-}
-
-/**
- * Po wybraniu atu:
- * każdy dostaje kolejne 3 karty.
- */
-function dealRemainingCards(game) {
-  for (let round = 0; round < 3; round++) {
-    for (let player = 0; player < 4; player++) {
-      const card = game.deck.pop();
-
-      if (card) {
-        game.hands[player].push(card);
+trumpButtons
+  .querySelectorAll("button")
+  .forEach(button => {
+    button.addEventListener("click", () => {
+      if (!currentGameState) {
+        return;
       }
-    }
+
+      if (currentGameState.phase !== "trump") {
+        return;
+      }
+
+      if (currentGameState.chooser !== mySeat) {
+        return;
+      }
+
+      const suit = button.dataset.suit;
+
+      socket.emit("chooseTrump", {
+        suit
+      });
+    });
+  });
+
+
+// =========================
+// WEJŚCIE DO POKOJU
+// =========================
+
+joinButton.addEventListener("click", joinGame);
+
+nicknameInput.addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    joinGame();
   }
+});
 
-  game.phase = "playing";
+roomInput.addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    joinGame();
+  }
+});
 
-  game.currentPlayer = game.chooser;
+function joinGame() {
+  const nickname =
+    nicknameInput.value.trim() || "Gracz";
 
-  game.lastMessage = `Atu: ${SUIT_NAMES[game.trump]} (${game.trump}). ${game.chooser + 1} wychodzi.`;
+  const room =
+    roomInput.value.trim().toUpperCase() || "TEST";
 
-  return game;
+  joinButton.disabled = true;
+  joinButton.textContent = "ŁĄCZENIE...";
+
+  socket.emit("joinRoom", {
+    nickname,
+    room
+  });
 }
 
-/**
- * Obierający musi wybrać kolor.
- */
-function chooseTrump(game, playerIndex, suit) {
-  if (game.phase !== "trump") {
-    return {
-      ok: false,
-      error: "Nie trwa wybieranie atu."
-    };
+
+// =========================
+// WYJŚCIE
+// =========================
+
+leaveButton.addEventListener("click", () => {
+  socket.emit("leaveRoom");
+
+  startScreen.style.display = "flex";
+  lobbyScreen.style.display = "none";
+  gameScreen.style.display = "none";
+
+  joinButton.disabled = false;
+  joinButton.textContent = "WEJDŹ DO GRY";
+});
+
+
+// =========================
+// SOCKET.IO
+// =========================
+
+socket.on("connect", () => {
+  console.log("Połączono z serwerem:", socket.id);
+
+  joinButton.disabled = false;
+  joinButton.textContent = "WEJDŹ DO GRY";
+});
+
+socket.on("connect_error", error => {
+  console.error(
+    "Błąd połączenia z serwerem:",
+    error
+  );
+
+  joinButton.disabled = false;
+  joinButton.textContent = "WEJDŹ DO GRY";
+
+  alert(
+    "Nie udało się połączyć z serwerem."
+  );
+});
+
+socket.on("joinedRoom", data => {
+  console.log("Dołączono do pokoju:", data);
+
+  mySeat = data.seat;
+
+  startScreen.style.display = "none";
+  lobbyScreen.style.display = "flex";
+  gameScreen.style.display = "none";
+
+  lobbyRoom.textContent =
+    `Pokój: ${data.room}`;
+});
+
+socket.on("joinError", data => {
+  console.error(
+    "Nie udało się wejść:",
+    data
+  );
+
+  joinButton.disabled = false;
+  joinButton.textContent = "WEJDŹ DO GRY";
+
+  alert(
+    data?.message ||
+    "Nie udało się wejść do pokoju."
+  );
+});
+
+socket.on("lobbyState", data => {
+  lobbyRoom.textContent =
+    `Pokój: ${data.room}`;
+
+  lobbyPlayers.innerHTML = "";
+
+  if (!data.players) {
+    return;
   }
 
-  if (playerIndex !== game.chooser) {
-    return {
-      ok: false,
-      error: "Nie jest Twoja kolej na wybór atu."
-    };
+  data.players.forEach(player => {
+    const div =
+      document.createElement("div");
+
+    div.className =
+      "lobby-player";
+
+    div.textContent =
+      `${player.seat + 1}. ${player.name}${player.bot ? " 🤖" : ""}`;
+
+    lobbyPlayers.appendChild(div);
+  });
+});
+
+socket.on("gameError", data => {
+  alert(
+    data?.message ||
+    "Nie można wykonać tej akcji."
+  );
+});
+
+socket.on("gameState", state => {
+  console.log("Stan gry:", state);
+
+  currentGameState = state;
+
+  lobbyScreen.style.display = "none";
+  gameScreen.style.display = "flex";
+
+  renderGame(state);
+});
+
+
+// =========================
+// RENDER GRY
+// =========================
+
+function renderGame(state) {
+  renderPlayers(state);
+  renderTrump(state);
+  renderScore(state);
+  renderTrick(state);
+  renderMyHand(state);
+  renderMessage(state);
+  renderTrumpButtons(state);
+}
+
+
+// =========================
+// GRACZE
+// =========================
+
+function renderPlayers(state) {
+  if (!state.playerNames) {
+    return;
   }
 
-  if (!SUITS.includes(suit)) {
-    return {
-      ok: false,
-      error: "Nieprawidłowy kolor atu."
-    };
+  const players =
+    state.playerNames;
+
+  const topSeat =
+    (mySeat + 2) % 4;
+
+  const leftSeat =
+    (mySeat + 1) % 4;
+
+  const rightSeat =
+    (mySeat + 3) % 4;
+
+  if (topPlayer) {
+    topPlayer.textContent =
+      players[topSeat] || "Gracz";
   }
 
-  game.trump = suit;
+  if (leftPlayer) {
+    leftPlayer.textContent =
+      players[leftSeat] || "Gracz";
+  }
 
-  dealRemainingCards(game);
+  if (rightPlayer) {
+    rightPlayer.textContent =
+      players[rightSeat] || "Gracz";
+  }
+}
 
-  return {
-    ok: true
+
+// =========================
+// ATU
+// =========================
+
+function renderTrump(state) {
+  if (!trumpDisplay) {
+    return;
+  }
+
+  if (!state.trump) {
+    trumpDisplay.textContent =
+      "Atu: —";
+
+    return;
+  }
+
+  const names = {
+    "♥": "Czerwo",
+    "♦": "Dzwonek",
+    "♣": "Krzak",
+    "♠": "Wino"
   };
+
+  trumpDisplay.textContent =
+    `Atu: ${state.trump} ${names[state.trump]}`;
 }
 
-/**
- * Zwraca aktualnie wygrywającą kartę w lewie.
- */
-function getWinningCard(trick, trump) {
-  if (!trick.length) {
-    return null;
+
+// =========================
+// PUNKTY
+// =========================
+
+function renderScore(state) {
+  if (scoreTeam1) {
+    scoreTeam1.textContent =
+      state.teamPoints?.[0] ?? 0;
   }
 
-  const leadSuit = trick[0].card.suit;
+  if (scoreTeam2) {
+    scoreTeam2.textContent =
+      state.teamPoints?.[1] ?? 0;
+  }
+}
 
-  let winning = trick[0];
 
-  for (let i = 1; i < trick.length; i++) {
-    const candidate = trick[i];
+// =========================
+// LEWA
+// =========================
 
-    if (beatsCard(candidate.card, winning.card, leadSuit, trump)) {
-      winning = candidate;
+function renderTrick(state) {
+  if (!playedCards) {
+    return;
+  }
+
+  playedCards.innerHTML = "";
+
+  if (!state.trick) {
+    return;
+  }
+
+  state.trick.forEach(item => {
+    const card =
+      document.createElement("div");
+
+    card.className =
+      "played-card";
+
+    card.textContent =
+      `${item.card.rank}${item.card.suit}`;
+
+    card.title =
+      state.playerNames?.[item.player] ||
+      `Gracz ${item.player + 1}`;
+
+    playedCards.appendChild(card);
+  });
+}
+
+
+// =========================
+// MOJE KARTY
+// =========================
+
+function renderMyHand(state) {
+  if (!myCards) {
+    return;
+  }
+
+  myCards.innerHTML = "";
+
+  const hand =
+    state.hands?.[mySeat] || [];
+
+  const legalCards =
+    getLegalCardIds(state);
+
+  hand.forEach(card => {
+    if (!card || card.hidden) {
+      return;
     }
-  }
 
-  return winning;
+    const button =
+      document.createElement("button");
+
+    button.type = "button";
+
+    button.className = "card";
+
+    button.textContent =
+      `${card.rank}${card.suit}`;
+
+    const isLegal =
+      legalCards.includes(card.id);
+
+    if (
+      state.phase === "playing" &&
+      state.currentPlayer === mySeat &&
+      isLegal
+    ) {
+      button.classList.add("legal");
+
+      button.addEventListener(
+        "click",
+        () => {
+          socket.emit("playCard", {
+            cardId: card.id
+          });
+        }
+      );
+    } else {
+      button.classList.add("disabled");
+    }
+
+    myCards.appendChild(button);
+  });
 }
 
-/**
- * Sprawdza, czy karta A bije kartę B.
- */
-function beatsCard(a, b, leadSuit, trump) {
-  const aTrump = a.suit === trump;
-  const bTrump = b.suit === trump;
 
-  if (aTrump && !bTrump) {
-    return true;
-  }
+// =========================
+// LEGALNE KARTY
+// =========================
 
-  if (!aTrump && bTrump) {
-    return false;
-  }
-
-  if (a.suit !== b.suit) {
-    return false;
-  }
-
-  return RANK_POWER[a.rank] > RANK_POWER[b.rank];
-}
-
-/**
- * Czy karta może zostać legalnie zagrana?
- *
- * Zasady:
- *
- * 1. Masz kolor wyjścia:
- *    - musisz dołożyć do koloru.
- *    - jeśli możesz przebić aktualnie wygrywającą kartę,
- *      musisz to zrobić.
- *
- * 2. Nie masz koloru:
- *    - możesz zagrać dowolną kartę.
- *
- * 3. Jeśli aktualnie wygrywa atu:
- *    - jeżeli masz wyższe atu, musisz nim przebić.
- *    - jeżeli nie masz wyższego atu, możesz zagrać dowolną kartę
- *      (w tym niższe atu).
- */
-function getLegalCards(game, playerIndex) {
-  const hand = game.hands[playerIndex];
-
-  if (!hand || !hand.length) {
+function getLegalCardIds(state) {
+  if (
+    state.phase !== "playing" ||
+    state.currentPlayer !== mySeat
+  ) {
     return [];
   }
 
-  if (!game.trick.length) {
-    return [...hand];
-  }
+  const hand =
+    state.hands?.[mySeat] || [];
 
-  const leadSuit = game.trick[0].card.suit;
-
-  const cardsOfLeadSuit = hand.filter(
-    card => card.suit === leadSuit
-  );
-
-  const winning = getWinningCard(game.trick, game.trump);
-
-  // Gracz ma kolor wyjścia.
-  if (cardsOfLeadSuit.length > 0) {
-    const cardsThatBeat = cardsOfLeadSuit.filter(card =>
-      beatsCard(
-        card,
-        winning.card,
-        leadSuit,
-        game.trump
-      )
+  const visibleHand =
+    hand.filter(
+      card => card && !card.hidden
     );
 
-    // Jeżeli może przebić — musi przebić.
-    if (cardsThatBeat.length > 0) {
-      return cardsThatBeat;
-    }
-
-    // Nie może przebić — dowolna karta koloru.
-    return cardsOfLeadSuit;
+  if (!state.trick?.length) {
+    return visibleHand.map(
+      card => card.id
+    );
   }
 
-  // Nie ma koloru — może rzucić cokolwiek.
-  return [...hand];
-}
+  const leadSuit =
+    state.trick[0].card.suit;
 
-function isLegalCard(game, playerIndex, cardId) {
-  const legalCards = getLegalCards(game, playerIndex);
+  const leadCards =
+    visibleHand.filter(
+      card =>
+        card.suit === leadSuit
+    );
 
-  return legalCards.some(card => card.id === cardId);
-}
-
-/**
- * Zagranie karty.
- */
-function playCard(game, playerIndex, cardId) {
-  if (game.phase !== "playing") {
-    return {
-      ok: false,
-      error: "Gra nie jest obecnie w fazie rozgrywania."
-    };
+  /*
+   * Jeśli mamy kolor wyjścia,
+   * na potrzeby UI pokazujemy karty
+   * tego koloru.
+   *
+   * Serwer i tak jest ostatecznym
+   * sędzią legalności ruchu.
+   */
+  if (leadCards.length > 0) {
+    return leadCards.map(
+      card => card.id
+    );
   }
 
-  if (playerIndex !== game.currentPlayer) {
-    return {
-      ok: false,
-      error: "To nie jest Twoja kolej."
-    };
-  }
-
-  const hand = game.hands[playerIndex];
-
-  const cardIndex = hand.findIndex(
-    card => card.id === cardId
+  /*
+   * Nie mamy koloru wyjścia.
+   * Możemy zagrać dowolną kartę.
+   */
+  return visibleHand.map(
+    card => card.id
   );
+}
 
-  if (cardIndex === -1) {
-    return {
-      ok: false,
-      error: "Nie masz tej karty."
-    };
+
+// =========================
+// KOMUNIKAT
+// =========================
+
+function renderMessage(state) {
+  if (!gameMessage) {
+    return;
   }
 
-  if (!isLegalCard(game, playerIndex, cardId)) {
-    return {
-      ok: false,
-      error: "Nie możesz zagrać tej karty."
-    };
-  }
-
-  const card = hand.splice(cardIndex, 1)[0];
-
-  game.trick.push({
-    player: playerIndex,
-    card
-  });
-
-  // Meldunek przy wyjściu Damą.
-  // Na razie tylko rejestrujemy możliwość.
-  // Faktyczne naliczanie punktów zostawiamy
-  // do modułu punktacji.
   if (
-    game.trick.length === 1 &&
-    card.rank === "Q"
+    state.phase === "trump" &&
+    state.chooser === mySeat
   ) {
-    const hasKing = hand.some(
-      c => c.suit === card.suit && c.rank === "K"
-    );
-
-    if (hasKing) {
-      const meldPoints =
-        card.suit === game.trump ? 40 : 20;
-
-      const team = playerIndex % 2;
-
-      game.melds[team] += meldPoints;
-      game.teamPoints[team] += meldPoints;
-
-      game.lastMessage =
-        `${playerIndex + 1} melduje ${meldPoints} pkt!`;
-    }
-  }
-
-  // Kolejny gracz.
-  game.currentPlayer =
-    (playerIndex + 1) % 4;
-
-  // Lewa zakończona.
-  if (game.trick.length === 4) {
-    finishTrick(game);
-  }
-
-  return {
-    ok: true
-  };
-}
-
-/**
- * Kończy lewę.
- */
-function finishTrick(game) {
-  const winning = getWinningCard(
-    game.trick,
-    game.trump
-  );
-
-  if (!winning) {
-    return;
-  }
-
-  const winner = winning.player;
-
-  const trickPoints = calculateTrickPoints(
-    game.trick
-  );
-
-  const team = winner % 2;
-
-  game.teamPoints[team] += trickPoints;
-
-  game.trickWinner = winner;
-
-  game.lastMessage =
-    `Lewę bierze gracz ${winner + 1} (+${trickPoints} pkt).`;
-
-  // 66+ = natychmiastowy koniec.
-  if (game.teamPoints[team] >= 66) {
-    game.phase = "finished";
-
-    game.lastMessage =
-      `Koniec! Drużyna ${team + 1} zdobyła ${game.teamPoints[team]} pkt.`;
+    gameMessage.textContent =
+      "Wybierz atu.";
 
     return;
   }
 
-  game.trick = [];
+  if (
+    state.phase === "playing" &&
+    state.currentPlayer === mySeat
+  ) {
+    gameMessage.textContent =
+      "Twoja kolej.";
 
-  // Zwycięzca poprzedniej lewy wychodzi.
-  game.currentPlayer = winner;
+    return;
+  }
+
+  if (state.phase === "finished") {
+    gameMessage.textContent =
+      state.lastMessage ||
+      "Koniec gry.";
+
+    return;
+  }
+
+  gameMessage.textContent =
+    state.lastMessage || "";
 }
 
-function calculateTrickPoints(trick) {
-  return trick.reduce(
-    (sum, played) =>
-      sum + CARD_VALUES[played.card.rank],
-    0
-  );
+
+// =========================
+// PRZYCISKI ATU
+// =========================
+
+function renderTrumpButtons(state) {
+  if (!trumpButtons) {
+    return;
+  }
+
+  const shouldShow =
+    state.phase === "trump" &&
+    state.chooser === mySeat;
+
+  trumpButtons.style.display =
+    shouldShow ? "flex" : "none";
 }
-
-function check66(game) {
-  return (
-    game.teamPoints[0] >= 66 ||
-    game.teamPoints[1] >= 66
-  );
-}
-
-/**
- * Stan wysyłany do klienta.
- *
- * Ukrywamy karty przeciwników.
- */
-function getGameState(game, viewerIndex = null) {
-  return {
-    phase: game.phase,
-
-    trump: game.trump,
-
-    chooser: game.chooser,
-
-    currentPlayer: game.currentPlayer,
-
-    teamPoints: [...game.teamPoints],
-
-    melds: [...game.melds],
-
-    trick: game.trick.map(item => ({
-      player: item.player,
-      card: item.card
-    })),
-
-    hands: game.hands.map((hand, index) => {
-      if (index === viewerIndex) {
-        return [...hand];
-      }
-
-      return hand.map(() => ({
-        hidden: true
-      }));
-    }),
-
-    handCount: game.hands.map(
-      hand => hand.length
-    ),
-
-    lastMessage: game.lastMessage
-  };
-}
-
-module.exports = {
-  SUITS,
-  SUIT_NAMES,
-  RANKS,
-  CARD_VALUES,
-  RANK_POWER,
-
-  createDeck,
-  shuffle,
-  createGame,
-
-  dealInitialCards,
-  dealRemainingCards,
-
-  chooseTrump,
-
-  getLegalCards,
-  isLegalCard,
-  playCard,
-
-  getWinningCard,
-  calculateTrickPoints,
-  check66,
-
-  getGameState
-};
