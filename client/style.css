@@ -120,6 +120,42 @@ button:disabled {
     text-align: left;
 }
 
+/* =========================
+   WYBÓR DRUŻYNY
+========================= */
+
+.team-selection {
+    margin: 20px 0;
+    padding: 16px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.team-selection h3 {
+    margin: 0 0 12px;
+}
+
+.team-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.team-button {
+    border: 2px solid transparent;
+}
+
+.team-button.selected {
+    border-color: #d5ddd7;
+    background: #718077;
+}
+
+.selected-team {
+    margin-top: 12px;
+    color: #b9c2bb;
+    font-size: 14px;
+}
+
 #leaveButton {
     background: #763f3f;
 }
@@ -207,8 +243,6 @@ button:disabled {
         0 20px 50px rgba(0, 0, 0, 0.4);
     overflow: hidden;
 }
-
-/* Gracze */
 
 .player {
     position: absolute;
@@ -309,8 +343,6 @@ button:disabled {
     margin-top: 5px;
 }
 
-/* CZERWO + DZWONEK */
-
 .card.red,
 .hand-card.red {
     color: #d00000;
@@ -320,8 +352,6 @@ button:disabled {
 .card.red .card-suit {
     color: #d00000;
 }
-
-/* KRZAK + WINO */
 
 .card.black,
 .hand-card.black {
@@ -359,10 +389,6 @@ button:disabled {
     transform: translateY(-8px);
 }
 
-.hand-card:disabled {
-    opacity: 0.65;
-}
-
 /* =========================
    MESSAGE
 ========================= */
@@ -376,7 +402,7 @@ button:disabled {
 }
 
 /* =========================
-   TRUMP BUTTONS
+   OBIERAJ
 ========================= */
 
 .trump-buttons {
@@ -418,10 +444,11 @@ button:disabled {
 }
 
 /* =========================
-   RESPONSIVE
+   MOBILE
 ========================= */
 
 @media (max-width: 700px) {
+
     .screen {
         padding: 10px;
     }
@@ -500,6 +527,7 @@ button:disabled {
 }
 
 @media (max-width: 420px) {
+
     .table {
         min-height: 520px;
     }
@@ -528,5 +556,9 @@ button:disabled {
 
     .player {
         max-width: 100px;
+    }
+
+    .team-buttons {
+        grid-template-columns: 1fr;
     }
 }
