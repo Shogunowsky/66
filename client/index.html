@@ -2,344 +2,349 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sznaps</title>
-    <link rel="stylesheet" href="/style.css">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Sznaps — 66</title>
+
+    <link
+        rel="stylesheet"
+        href="/style.css"
+    >
 </head>
 
 <body>
 
-<section id="startScreen" class="screen">
+    <!-- ========================= -->
+    <!-- EKRAN STARTOWY -->
+    <!-- ========================= -->
 
-    <div class="start-box">
+    <section
+        id="startScreen"
+        class="screen"
+    >
 
-        <h1>⛏️ SZNAPS</h1>
+        <div class="start-card">
 
-        <p>Gra karciana spod ziemi</p>
+            <h1>Sznaps</h1>
 
-        <input
-            id="nickname"
-            type="text"
-            maxlength="20"
-            placeholder="Twój pseudonim"
-            autocomplete="off"
-        >
+            <p class="subtitle">
+                Gra karciana 66
+            </p>
 
-        <input
-            id="room"
-            type="text"
-            maxlength="20"
-            placeholder="Pokój"
-            autocomplete="off"
-        >
-
-        <button id="joinButton" type="button">
-            WEJDŹ DO GRY
-        </button>
-
-    </div>
-
-</section>
-
-
-<section id="lobbyScreen" class="screen">
-
-    <div class="lobby-box">
-
-        <h2>POCZEKALNIA</h2>
-
-        <div class="lobby-room">
-            Pokój:
-            <strong id="lobbyRoom">—</strong>
-        </div>
-
-        <div
-            id="lobbyStatus"
-            class="lobby-status"
-        >
-            Oczekiwanie na graczy...
-        </div>
-
-        <h3>Gracze</h3>
-
-        <div id="lobbyPlayers"></div>
-
-
-        <div class="team-selection">
-
-            <h3>Wybierz drużynę</h3>
-
-            <div class="team-buttons">
-
-                <button
-                    id="team1Button"
-                    type="button"
-                    class="team-button"
-                    data-team="0"
-                >
-                    DRUŻYNA 1
-                </button>
-
-                <button
-                    id="team2Button"
-                    type="button"
-                    class="team-button"
-                    data-team="1"
-                >
-                    DRUŻYNA 2
-                </button>
-
-            </div>
-
-            <div
-                id="selectedTeam"
-                class="selected-team"
+            <input
+                id="nickname"
+                type="text"
+                placeholder="Twój nick"
+                maxlength="20"
+                autocomplete="off"
             >
-                Nie wybrano drużyny
-            </div>
+
+            <input
+                id="room"
+                type="text"
+                placeholder="Kod pokoju"
+                maxlength="12"
+                autocomplete="off"
+            >
+
+            <button id="joinButton">
+                Dołącz do gry
+            </button>
+
+            <p
+                id="startMessage"
+                class="message"
+            ></p>
 
         </div>
 
+    </section>
 
-        <div class="lobby-actions">
+
+    <!-- ========================= -->
+    <!-- LOBBY -->
+    <!-- ========================= -->
+
+    <section
+        id="lobbyScreen"
+        class="screen hidden"
+    >
+
+        <div class="lobby-card">
+
+            <h1>Sznaps</h1>
+
+            <div class="room-info">
+
+                <span>
+                    Pokój:
+                </span>
+
+                <strong id="lobbyRoom">
+                    ------
+                </strong>
+
+            </div>
+
+            <p
+                id="lobbyStatus"
+                class="message"
+            >
+                Oczekiwanie na graczy...
+            </p>
+
+
+            <!-- GRACZE -->
+
+            <div class="lobby-players">
+
+                <h2>Gracze</h2>
+
+                <div id="lobbyPlayers">
+                    <div class="empty-player">
+                        Oczekiwanie...
+                    </div>
+                </div>
+
+            </div>
+
+
+            <!-- DRUŻYNY -->
+
+            <div class="team-selection">
+
+                <h2>Wybierz drużynę</h2>
+
+                <div class="team-buttons">
+
+                    <button
+                        id="team1Button"
+                        type="button"
+                    >
+                        Drużyna 1
+                    </button>
+
+                    <button
+                        id="team2Button"
+                        type="button"
+                    >
+                        Drużyna 2
+                    </button>
+
+                </div>
+
+                <p class="selected-team-text">
+                    Wybrana drużyna:
+                    <strong id="selectedTeam">
+                        brak
+                    </strong>
+                </p>
+
+            </div>
+
+
+            <!-- START Z BOTAMI -->
 
             <button
                 id="botsButton"
                 type="button"
-                class="bots-button"
             >
-                GRAJ Z BOTAMI
+                Graj z botami
             </button>
+
+
+            <!-- WYJŚCIE -->
 
             <button
                 id="leaveButton"
                 type="button"
+                class="secondary-button"
             >
-                OPUŚĆ POKÓJ
+                Opuść pokój
             </button>
 
         </div>
 
-    </div>
-
-</section>
+    </section>
 
 
-<section id="gameScreen" class="screen">
+    <!-- ========================= -->
+    <!-- GRA -->
+    <!-- ========================= -->
 
-    <div class="game">
+    <section
+        id="gameScreen"
+        class="screen hidden"
+    >
+
+        <div class="game-container">
 
 
-        <!-- =========================
-             NAGŁÓWEK
-        ========================== -->
+            <!-- GÓRA INFORMACYJNA -->
 
-        <div class="game-header">
+            <div class="game-header">
 
-            <div class="game-title">
-                SZNAPS
+                <div class="trump-info">
+
+                    <span>
+                        Atut:
+                    </span>
+
+                    <strong id="trumpDisplay">
+                        -
+                    </strong>
+
+                </div>
+
+
+                <div class="scores">
+
+                    <div class="score-team">
+
+                        <span id="team1Name">
+                            Drużyna 1
+                        </span>
+
+                        <strong id="scoreTeam1">
+                            0
+                        </strong>
+
+                        <small>
+                            Gra
+                        </small>
+
+                        <span id="overallTeam1">
+                            0
+                        </span>
+
+                        <small>
+                            Ogólne
+                        </small>
+
+                        <span id="gamesTeam1">
+                            0
+                        </span>
+
+                        <small>
+                            66
+                        </small>
+
+                    </div>
+
+
+                    <div class="score-team">
+
+                        <span id="team2Name">
+                            Drużyna 2
+                        </span>
+
+                        <strong id="scoreTeam2">
+                            0
+                        </strong>
+
+                        <small>
+                            Gra
+                        </small>
+
+                        <span id="overallTeam2">
+                            0
+                        </span>
+
+                        <small>
+                            Ogólne
+                        </small>
+
+                        <span id="gamesTeam2">
+                            0
+                        </span>
+
+                        <small>
+                            66
+                        </small>
+
+                    </div>
+
+                </div>
+
             </div>
 
-            <div
-                id="trumpDisplay"
-                class="trump"
-            >
-                Obrany kolor: —
-            </div>
 
-        </div>
+            <!-- STÓŁ -->
+
+            <div class="game-table">
 
 
-        <!-- =========================
-             PUNKTACJA
-        ========================== -->
-
-        <div class="scores">
-
-
-            <!-- DRUŻYNA 1 -->
-
-            <div class="score-box">
+                <!-- PARTNER / GÓRA -->
 
                 <div
-                    id="team1Name"
-                    class="score-name"
+                    id="topPlayer"
+                    class="player player-top"
                 >
-                    Drużyna 1
+                    Partner
                 </div>
 
 
-                <div class="score-section">
-
-                    <div class="score-label">
-                        Punkty gry
-                    </div>
-
-                    <div
-                        id="scoreTeam1"
-                        class="score-value"
-                    >
-                        0
-                    </div>
-
-                </div>
-
-
-                <div class="score-section">
-
-                    <div class="score-label">
-                        Punkty ogólne
-                    </div>
-
-                    <div
-                        id="overallTeam1"
-                        class="score-secondary"
-                    >
-                        0
-                    </div>
-
-                </div>
-
-
-                <div class="score-section">
-
-                    <div class="score-label">
-                        Całe punkty
-                    </div>
-
-                    <div
-                        id="gamesTeam1"
-                        class="score-secondary"
-                    >
-                        0
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <!-- DRUŻYNA 2 -->
-
-            <div class="score-box">
+                <!-- LEWY GRACZ -->
 
                 <div
-                    id="team2Name"
-                    class="score-name"
+                    id="leftPlayer"
+                    class="player player-left"
                 >
-                    Drużyna 2
+                    Lewy
                 </div>
 
 
-                <div class="score-section">
+                <!-- PRAWA GRACZ -->
 
-                    <div class="score-label">
-                        Punkty gry
-                    </div>
-
-                    <div
-                        id="scoreTeam2"
-                        class="score-value"
-                    >
-                        0
-                    </div>
-
+                <div
+                    id="rightPlayer"
+                    class="player player-right"
+                >
+                    Prawy
                 </div>
 
 
-                <div class="score-section">
+                <!-- KARTY NA STOLE -->
 
-                    <div class="score-label">
-                        Punkty ogólne
-                    </div>
-
-                    <div
-                        id="overallTeam2"
-                        class="score-secondary"
-                    >
-                        0
-                    </div>
-
-                </div>
+                <div
+                    id="playedCards"
+                    class="played-cards"
+                ></div>
 
 
-                <div class="score-section">
+                <!-- KOMUNIKAT -->
 
-                    <div class="score-label">
-                        Całe punkty
-                    </div>
+                <div
+                    id="gameMessage"
+                    class="game-message"
+                ></div>
 
-                    <div
-                        id="gamesTeam2"
-                        class="score-secondary"
-                    >
-                        0
-                    </div>
 
-                </div>
+                <!-- MOJE KARTY -->
+
+                <div
+                    id="myCards"
+                    class="my-cards"
+                ></div>
 
             </div>
 
         </div>
 
-
-        <!-- =========================
-             STÓŁ
-        ========================== -->
-
-        <div class="table">
+    </section>
 
 
-            <div
-                id="topPlayer"
-                class="player player-top"
-            >
-                —
-            </div>
+    <!-- SOCKET.IO -->
 
+    <script src="/socket.io/socket.io.js"></script>
 
-            <div
-                id="leftPlayer"
-                class="player player-left"
-            >
-                —
-            </div>
+    <!-- LOGIKA GRY -->
 
-
-            <div
-                id="rightPlayer"
-                class="player player-right"
-            >
-                —
-            </div>
-
-
-            <div id="playedCards"></div>
-
-
-            <div id="myCards"></div>
-
-        </div>
-
-
-        <!-- =========================
-             KOMUNIKAT
-        ========================== -->
-
-        <div
-            id="gameMessage"
-            aria-live="polite"
-        >
-            —
-        </div>
-
-    </div>
-
-</section>
-
-
-<script src="/socket.io/socket.io.js"></script>
-<script src="/game.js"></script>
+    <script src="/game.js"></script>
 
 </body>
 </html>
