@@ -61,22 +61,6 @@ function arrangePlayersForTeams(room) {
         return false;
     }
 
-    /*
-        Układ przy stole:
-
-              [2] PARTNER
-                  ↑
-        [1] ←     → [3]
-                  ↓
-                [0] JA
-
-        Drużyna 0:
-        0 + 2
-
-        Drużyna 1:
-        1 + 3
-    */
-
     room.players = [
         team0[0],
         team1[0],
@@ -114,14 +98,8 @@ function sendGameState(room) {
 
         const personalState = {
             ...state,
-
-            /*
-             * Klient potrzebuje dokładnie pola "hand".
-             */
             hand: room.game.hands[index] || [],
-
             playerIndex: index,
-
             myTeam: player.team,
 
             teamNames: [
@@ -129,19 +107,15 @@ function sendGameState(room) {
                 getTeamName(room, 1)
             ],
 
-            /*
-             * Nie wysyłamy cudzych kart.
-             */
             hands: undefined
         };
 
-        io.to(player.socketId).emit("gameState", personalState);
+        io.to(player.socketId).emit(
+            "gameState",
+            personalState
+        );
     }
 
-    /*
-     * W fazie obierania wysyłamy sygnał wyłącznie
-     * do gracza, który aktualnie ma obierać kolor.
-     */
     if (
         room.game.phase === "trump" &&
         room.game.currentPlayer !== null &&
@@ -170,7 +144,10 @@ function assignBotTeams(room) {
             continue;
         }
 
-        if (teamCounts[0] < 2 && teamCounts[0] <= teamCounts[1]) {
+        if (
+            teamCounts[0] < 2 &&
+            teamCounts[0] <= teamCounts[1]
+        ) {
             player.team = 0;
             teamCounts[0]++;
         } else {
@@ -183,9 +160,6 @@ function assignBotTeams(room) {
 function startGame(room) {
     const humans = getHumanPlayers(room);
 
-    /*
-     * Każdy człowiek musi najpierw wybrać drużynę.
-     */
     for (const player of humans) {
         if (player.team !== 0 && player.team !== 1) {
             return {
@@ -195,16 +169,10 @@ function startGame(room) {
         }
     }
 
-    /*
-     * Dobijamy botami do czterech graczy.
-     */
     if (room.players.length < 4) {
         fillBots(room.players);
     }
 
-    /*
-     * Boty bez drużyny dostają drużynę.
-     */
     assignBotTeams(room);
 
     const team0 = getTeamPlayers(room, 0);
@@ -217,10 +185,6 @@ function startGame(room) {
         };
     }
 
-    /*
-     * Ustawiamy graczy przy stole tak,
-     * żeby partner zawsze był naprzeciwko.
-     */
     if (!arrangePlayersForTeams(room)) {
         return {
             ok: false,
@@ -258,16 +222,23 @@ function processBotTurn(room) {
         return;
     }
 
-    /*
-     * BOT OBIERA KOLOR
-     */
     if (game.phase === "trump") {
-        const trump = chooseBotTrump(game, currentIndex);
+        const trump = chooseBotTrump(
+            game,
+            currentIndex
+        );
 
-        const result = chooseTrump(game, currentIndex, trump);
+        const result = chooseTrump(
+            game,
+            currentIndex,
+            trump
+        );
 
         if (!result || result.ok === false) {
-            console.error("Bot nie mógł obrać koloru:", result);
+            console.error(
+                "Bot nie mógł obrać koloru:",
+                result
+            );
             return;
         }
 
@@ -282,21 +253,30 @@ function processBotTurn(room) {
         return;
     }
 
-    /*
-     * BOT GRA KARTĘ
-     */
     if (game.phase === "playing") {
-        const card = chooseBotCard(game, currentIndex);
+        const card = chooseBotCard(
+            game,
+            currentIndex
+        );
 
         if (!card) {
-            console.error("Bot nie znalazł legalnej karty.");
+            console.error(
+                "Bot nie znalazł legalnej karty."
+            );
             return;
         }
 
-        const result = playCard(game, currentIndex, card);
+        const result = playCard(
+            game,
+            currentIndex,
+            card
+        );
 
         if (!result || result.ok === false) {
-            console.error("Bot nie mógł zagrać:", result);
+            console.error(
+                "Bot nie mógł zagrać:",
+                result
+            );
             return;
         }
 
@@ -311,12 +291,33 @@ function processBotTurn(room) {
 io.on("connection", socket => {
     console.log("Połączono:", socket.id);
 
-    socket.on("joinRoom", ({ roomId, name }) => {
-        roomId = String(roomId || "").trim().toUpperCase();
-        name = String(name || "").trim();
+    socket.on("joinRoom", data => {
+
+        /*
+         * Obsługujemy zarówno:
+         * name
+         * jak i nickname
+         *
+         * Dzięki temu różne wersje klienta
+         * nie będą się ze sobą gryzły.
+         */
+        data = data || {};
+
+        let roomId = String(
+            data.roomId || ""
+        ).trim().toUpperCase();
+
+        let name = String(
+            data.name ||
+            data.nickname ||
+            ""
+        ).trim();
 
         if (!roomId || !name) {
-            socket.emit("errorMessage", "Podaj kod pokoju i nick.");
+            socket.emit(
+                "errorMessage",
+                "Podaj kod pokoju i nick."
+            );
             return;
         }
 
@@ -333,24 +334,56 @@ io.on("connection", socket => {
             rooms.set(roomId, room);
         }
 
+        /*
+         * Czyścimy graczy, których socket już nie istnieje.
+         * Zapobiega to sytuacji, w której po odświeżeniu
+         * nick pozostaje sztucznie zajęty.
+         */
+        room.players = room.players.filter(player => {
+            if (player.isBot) {
+                return true;
+            }
+
+            const connectedSocket =
+                io.sockets.sockets.get(
+                    player.socketId
+                );
+
+            return !!connectedSocket;
+        });
+
         if (room.started) {
-            socket.emit("errorMessage", "Ta gra już się rozpoczęła.");
+            socket.emit(
+                "errorMessage",
+                "Ta gra już się rozpoczęła."
+            );
             return;
         }
 
         if (room.players.length >= 4) {
-            socket.emit("errorMessage", "Pokój jest pełny.");
+            socket.emit(
+                "errorMessage",
+                "Pokój jest pełny."
+            );
             return;
         }
 
-        if (
-            room.players.some(
-                player =>
-                    !player.isBot &&
-                    player.name.toLowerCase() === name.toLowerCase()
-            )
-        ) {
-            socket.emit("errorMessage", "Taki nick jest już zajęty.");
+        /*
+         * Sprawdzamy nick dopiero po usunięciu
+         * nieaktywnych połączeń.
+         */
+        const nickTaken = room.players.some(
+            player =>
+                !player.isBot &&
+                player.name.toLowerCase() ===
+                    name.toLowerCase()
+        );
+
+        if (nickTaken) {
+            socket.emit(
+                "errorMessage",
+                "Taki nick jest już zajęty."
+            );
             return;
         }
 
@@ -400,9 +433,12 @@ io.on("connection", socket => {
             return;
         }
 
-        const currentTeamPlayers = room.players.filter(
-            p => !p.isBot && p.team === team
-        );
+        const currentTeamPlayers =
+            room.players.filter(
+                p =>
+                    !p.isBot &&
+                    p.team === team
+            );
 
         if (
             player.team !== team &&
@@ -419,23 +455,30 @@ io.on("connection", socket => {
 
         sendLobby(room);
 
-        /*
-         * Jeśli są już czterej ludzie i drużyny są kompletne,
-         * rozpoczynamy grę.
-         */
         const humans = getHumanPlayers(room);
 
         if (
             humans.length === 4 &&
             humans.every(
-                p => p.team === 0 || p.team === 1
+                p =>
+                    p.team === 0 ||
+                    p.team === 1
             )
         ) {
-            const team0 = humans.filter(p => p.team === 0);
-            const team1 = humans.filter(p => p.team === 1);
+            const team0 = humans.filter(
+                p => p.team === 0
+            );
 
-            if (team0.length === 2 && team1.length === 2) {
-                const result = startGame(room);
+            const team1 = humans.filter(
+                p => p.team === 1
+            );
+
+            if (
+                team0.length === 2 &&
+                team1.length === 2
+            ) {
+                const result =
+                    startGame(room);
 
                 if (!result.ok) {
                     socket.emit(
@@ -462,7 +505,10 @@ io.on("connection", socket => {
             return;
         }
 
-        if (player.team !== 0 && player.team !== 1) {
+        if (
+            player.team !== 0 &&
+            player.team !== 1
+        ) {
             socket.emit(
                 "errorMessage",
                 "Najpierw wybierz swoją drużynę."
@@ -487,9 +533,10 @@ io.on("connection", socket => {
             return;
         }
 
-        const playerIndex = room.players.findIndex(
-            p => p.socketId === socket.id
-        );
+        const playerIndex =
+            room.players.findIndex(
+                p => p.socketId === socket.id
+            );
 
         if (playerIndex === -1) {
             return;
@@ -497,7 +544,8 @@ io.on("connection", socket => {
 
         if (
             room.game.phase !== "trump" ||
-            room.game.currentPlayer !== playerIndex
+            room.game.currentPlayer !==
+                playerIndex
         ) {
             return;
         }
@@ -511,14 +559,12 @@ io.on("connection", socket => {
         if (!result || result.ok === false) {
             socket.emit(
                 "errorMessage",
-                result?.error || "Nie można obrać tego koloru."
+                result?.error ||
+                    "Nie można obrać tego koloru."
             );
             return;
         }
 
-        /*
-         * Po wybraniu koloru rozdawane są pozostałe 3 karty.
-         */
         dealRemainingCards(room.game);
 
         sendGameState(room);
@@ -533,9 +579,10 @@ io.on("connection", socket => {
             return;
         }
 
-        const playerIndex = room.players.findIndex(
-            p => p.socketId === socket.id
-        );
+        const playerIndex =
+            room.players.findIndex(
+                p => p.socketId === socket.id
+            );
 
         if (playerIndex === -1) {
             return;
@@ -550,7 +597,8 @@ io.on("connection", socket => {
         if (!result || result.ok === false) {
             socket.emit(
                 "errorMessage",
-                result?.error || "Nie można zagrać tej karty."
+                result?.error ||
+                    "Nie można zagrać tej karty."
             );
             return;
         }
@@ -565,7 +613,10 @@ io.on("connection", socket => {
     });
 
     socket.on("disconnect", () => {
-        console.log("Rozłączono:", socket.id);
+        console.log(
+            "Rozłączono:",
+            socket.id
+        );
 
         leaveRoom(socket);
     });
@@ -584,9 +635,11 @@ function leaveRoom(socket) {
         return;
     }
 
-    const index = room.players.findIndex(
-        player => player.socketId === socket.id
-    );
+    const index =
+        room.players.findIndex(
+            player =>
+                player.socketId === socket.id
+        );
 
     if (index === -1) {
         return;
@@ -594,10 +647,6 @@ function leaveRoom(socket) {
 
     const player = room.players[index];
 
-    /*
-     * Jeśli gra jeszcze się nie zaczęła,
-     * usuwamy gracza normalnie z lobby.
-     */
     if (!room.started) {
         room.players.splice(index, 1);
 
@@ -610,16 +659,16 @@ function leaveRoom(socket) {
         return;
     }
 
-    /*
-     * Po rozpoczęciu gry na razie nie przebudowujemy stołu.
-     */
     console.log(
         `Gracz ${player.name} opuścił grę ${roomId}.`
     );
 }
 
-const PORT = process.env.PORT || 3000;
+const PORT =
+    process.env.PORT || 3000;
 
 server.listen(PORT, () => {
-    console.log(`Serwer działa na porcie ${PORT}`);
+    console.log(
+        `Serwer działa na porcie ${PORT}`
+    );
 });
