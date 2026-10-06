@@ -1,129 +1,122 @@
 const {
-  getLegalCards
+    SUITS,
+    isLegalPlay
 } = require("./game");
 
-const BOT_NAMES = [
-  "Biały",
-  "PowLeeShin",
-  "Nadsztygar",
-  "Zgred"
-];
-
 function fillBots(players) {
-  while (players.length < 4) {
-    const seat = players.length;
+    let botNumber = 1;
 
-    players.push({
-      id: `bot-${seat}`,
-      name: BOT_NAMES[seat] || `Bot ${seat + 1}`,
-      seat,
-      bot: true
-    });
-  }
+    while (players.length < 4) {
+        players.push({
+            socketId: `BOT_${Date.now()}_${botNumber}`,
+            name: `Bot ${botNumber}`,
+            isBot: true,
+            team: null
+        });
 
-  return players;
+        botNumber++;
+    }
 }
 
 function chooseBotTrump(game, playerIndex) {
-  const hand = game.hands[playerIndex];
+    const hand = game.hands[playerIndex] || [];
 
-  if (!hand || hand.length === 0) {
-    return game.trump;
-  }
-
-  const suitCounts = {};
-
-  for (const suit of game.constructor?.SUITS || []) {
-    suitCounts[suit] = 0;
-  }
-
-  for (const card of hand) {
-    suitCounts[card.suit] =
-      (suitCounts[card.suit] || 0) + 1;
-  }
-
-  let bestSuit = hand[0].suit;
-  let bestCount = 0;
-
-  for (const suit of Object.keys(suitCounts)) {
-    if (suitCounts[suit] > bestCount) {
-      bestCount = suitCounts[suit];
-      bestSuit = suit;
+    if (hand.length === 0) {
+        return SUITS[0];
     }
-  }
 
-  return bestSuit;
+    const counts = {
+        "♥": 0,
+        "♦": 0,
+        "♣": 0,
+        "♠": 0
+    };
+
+    /*
+     * Bot wybiera kolor, którego ma najwięcej.
+     */
+    for (const card of hand) {
+        counts[card.suit]++;
+    }
+
+    let bestSuit = SUITS[0];
+    let bestCount = -1;
+
+    for (const suit of SUITS) {
+        if (counts[suit] > bestCount) {
+            bestCount = counts[suit];
+            bestSuit = suit;
+        }
+    }
+
+    return bestSuit;
 }
 
 function chooseBotCard(game, playerIndex) {
-  const legalCards =
-    getLegalCards(game, playerIndex);
+    const hand = game.hands[playerIndex] || [];
 
-  if (!legalCards.length) {
-    return null;
-  }
+    if (hand.length === 0) {
+        return null;
+    }
 
-  /*
-   * Na razie bot gra możliwie bezpiecznie:
-   *
-   * - jeśli może legalnie przebić, wybiera
-   *   najniższą kartę, która wystarczy;
-   * - jeśli nie może przebić, oddaje
-   *   najniższą kartę;
-   * - przy kilku możliwościach preferuje
-   *   karty o mniejszej wartości punktowej.
-   */
+    /*
+     * Najpierw szukamy wszystkich legalnych kart.
+     */
+    const legalCards = [];
 
-  const cardValue = {
-    A: 11,
-    "10": 10,
-    K: 4,
-    Q: 3,
-    J: 2,
-    9: 0
-  };
+    for (const card of hand) {
+        const result = isLegalPlay(
+            game,
+            playerIndex,
+            card
+        );
 
-  const sorted = [...legalCards].sort(
-    (a, b) =>
-      cardValue[a.rank] -
-      cardValue[b.rank]
-  );
+        if (result.ok) {
+            legalCards.push(card);
+        }
+    }
 
-  /*
-   * Jeżeli mamy kilka kart o tej samej
-   * wartości, zachowujemy pierwszą.
-   */
-  return sorted[0].id;
+    if (legalCards.length === 0) {
+        return null;
+    }
+
+    /*
+     * Bot gra najniższą legalną kartę.
+     * Przy tej wersji gry jest to najprostsza
+     * bezpieczna strategia.
+     */
+    legalCards.sort((a, b) => {
+        if (a.value !== b.value) {
+            return a.value - b.value;
+        }
+
+        return 0;
+    });
+
+    return legalCards[0];
 }
 
-function removeCardFromBot(
-  game,
-  playerIndex,
-  cardId
-) {
-  const hand = game.hands[playerIndex];
+function removeCardFromBot(game, playerIndex, card) {
+    const hand = game.hands[playerIndex] || [];
 
-  if (!hand) {
-    return false;
-  }
+    const index = hand.findIndex(
+        handCard =>
+            handCard.suit === card.suit &&
+            handCard.rank === card.rank
+    );
 
-  const index = hand.findIndex(
-    card => card.id === cardId
-  );
+    if (index === -1) {
+        return false;
+    }
 
-  if (index === -1) {
-    return false;
-  }
+    hand.splice(index, 1);
 
-  hand.splice(index, 1);
-
-  return true;
+    return true;
 }
 
 module.exports = {
-  BOT_NAMES,
-  fillBots,
-  chooseBotTrump,
-  chooseBotCard,
-  removeCardFromBot
+    fillBots,
+    chooseBotTrump,
+    chooseBotCard,
+    removeCardFromBot
 };
