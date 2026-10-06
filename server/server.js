@@ -1,26 +1,26 @@
-```js
 const express = require("express");
 const http = require("http");
 const path = require("path");
 const { Server } = require("socket.io");
 
 const {
-    createGame,
-    dealInitialCards,
-    chooseTrump,
-    chooseSpecialMode,
-    callLufa,
-    callBackLufa,
-    finishLufaWindow,
-    playCard,
-    startNextHand,
-    getGameState
+createGame,
+dealInitialCards,
+chooseTrump,
+chooseSpecialMode,
+callLufa,
+callBackLufa,
+finishLufaWindow,
+playCard,
+startNextHand,
+getGameState
 } = require("./game");
 
 const {
-    fillBots,
-    chooseBotTrump,
-    chooseBotCard
+fillBots,
+chooseBotTrump,
+chooseBotSpecialMode,
+chooseBotCard
 } = require("./bot");
 
 const app = express();
@@ -30,614 +30,592 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT =
-    process.env.PORT || 3000;
+process.env.PORT || 3000;
 
 /* =========================
-   STATIC
+STATIC
 ========================= */
 
 app.use(
-    express.static(
-        path.join(__dirname, "..", "client")
-    )
+express.static(
+path.join(__dirname, "..", "client")
+)
 );
 
 /* =========================
-   ROOMS
+ROOMS
 ========================= */
 
 const rooms = new Map();
 
 function getRoom(roomName) {
-    return rooms.get(roomName);
+return rooms.get(roomName);
 }
 
 function createRoom(roomName) {
-    const room = {
-        name: roomName,
-        players: [],
-        game: null,
-        started: false,
-        botTimer: null,
-        lufaTimer: null
-    };
+const room = {
+name: roomName,
+players: [],
+game: null,
+started: false,
+botTimer: null,
+lufaTimer: null
+};
 
-    rooms.set(
-        roomName,
-        room
-    );
+```
+rooms.set(
+    roomName,
+    room
+);
 
-    return room;
+return room;
+```
+
 }
 
 /* =========================
-   ROOM STATE
+ROOM STATE
 ========================= */
 
 function getLobbyState(room) {
-    return {
-        roomName: room.name,
+return {
+roomName: room.name,
 
-        players:
-            room.players.map(
-                player => ({
-                    socketId: player.socketId,
-                    name: player.name,
-                    team: player.team,
-                    isBot: !!player.isBot
-                })
-            ),
+```
+    players:
+        room.players.map(
+            player => ({
+                socketId: player.socketId,
+                name: player.name,
+                team: player.team,
+                isBot: !!player.isBot
+            })
+        ),
 
-        statusMessage:
-            room.started
-                ? "Gra trwa."
-                : "Wybierz drużynę."
-    };
+    statusMessage:
+        room.started
+            ? "Gra trwa."
+            : "Wybierz drużynę."
+};
+```
+
 }
 
 function sendLobby(room) {
-    io.to(room.name).emit(
-        "lobbyState",
-        getLobbyState(room)
-    );
+io.to(room.name).emit(
+"lobbyState",
+getLobbyState(room)
+);
 }
 
 function sendGameState(room) {
-    if (!room.game) {
-        return;
-    }
+if (!room.game) {
+return;
+}
 
-    room.players.forEach(
-        player => {
-            if (
-                player.isBot ||
-                !player.socketId
-            ) {
-                return;
-            }
-
-            const state =
-                getGameState(
-                    room.game
-                );
-
-            const playerIndex =
-                room.game.players.findIndex(
-                    p =>
-                        p.socketId ===
-                        player.socketId
-                );
-
-            if (playerIndex === -1) {
-                return;
-            }
-
-            state.myPlayerIndex =
-                playerIndex;
-
-            state.hand =
-                room.game.hands[
-                    playerIndex
-                ] || [];
-
-            io.to(
-                player.socketId
-            ).emit(
-                "gameState",
-                state
-            );
+```
+room.players.forEach(
+    player => {
+        if (
+            player.isBot ||
+            !player.socketId
+        ) {
+            return;
         }
-    );
+
+        const state =
+            getGameState(
+                room.game
+            );
+
+        const playerIndex =
+            room.game.players.findIndex(
+                p =>
+                    p.socketId ===
+                    player.socketId
+            );
+
+        if (playerIndex === -1) {
+            return;
+        }
+
+        state.myPlayerIndex =
+            playerIndex;
+
+        state.hand =
+            room.game.hands[
+                playerIndex
+            ] || [];
+
+        io.to(
+            player.socketId
+        ).emit(
+            "gameState",
+            state
+        );
+    }
+);
+```
+
 }
 
 /* =========================
-   MESSAGE
+MESSAGE
 ========================= */
 
 function sendError(socket, message) {
-    socket.emit(
-        "errorMessage",
-        message
-    );
+socket.emit(
+"errorMessage",
+message
+);
 }
 
 /* =========================
-   TEAM
+TEAM
 ========================= */
 
 function chooseTeam(
-    room,
-    socketId,
-    team
+room,
+socketId,
+team
 ) {
-    if (
-        team !== 0 &&
-        team !== 1
-    ) {
-        return {
-            ok: false,
-            error: "Nieprawidłowa drużyna."
-        };
-    }
+if (
+team !== 0 &&
+team !== 1
+) {
+return {
+ok: false,
+error: "Nieprawidłowa drużyna."
+};
+}
 
-    const player =
-        room.players.find(
-            p =>
-                p.socketId ===
-                socketId
-        );
+```
+const player =
+    room.players.find(
+        p =>
+            p.socketId ===
+            socketId
+    );
 
-    if (!player) {
-        return {
-            ok: false,
-            error: "Nie znaleziono gracza."
-        };
-    }
-
-    if (room.started) {
-        return {
-            ok: false,
-            error: "Gra już się rozpoczęła."
-        };
-    }
-
-    const teamCount =
-        room.players.filter(
-            p =>
-                p.team === team &&
-                p.socketId !== socketId
-        ).length;
-
-    if (teamCount >= 2) {
-        return {
-            ok: false,
-            error: "Ta drużyna jest już pełna."
-        };
-    }
-
-    player.team = team;
-
+if (!player) {
     return {
-        ok: true
+        ok: false,
+        error: "Nie znaleziono gracza."
     };
 }
 
+if (room.started) {
+    return {
+        ok: false,
+        error: "Gra już się rozpoczęła."
+    };
+}
+
+const teamCount =
+    room.players.filter(
+        p =>
+            p.team === team &&
+            p.socketId !== socketId
+    ).length;
+
+if (teamCount >= 2) {
+    return {
+        ok: false,
+        error: "Ta drużyna jest już pełna."
+    };
+}
+
+player.team = team;
+
+return {
+    ok: true
+};
+```
+
+}
+
 /* =========================
-   BOT TEAMS
+BOT TEAMS
 ========================= */
 
 function assignBotTeams(room) {
-    const teamCounts = [
-        room.players.filter(
-            p => p.team === 0
-        ).length,
+const teamCounts = [
+room.players.filter(
+p => p.team === 0
+).length,
 
-        room.players.filter(
-            p => p.team === 1
-        ).length
-    ];
+```
+    room.players.filter(
+        p => p.team === 1
+    ).length
+];
 
-    const bots =
-        room.players.filter(
-            p => p.isBot
-        );
+const bots =
+    room.players.filter(
+        p => p.isBot
+    );
 
-    for (const bot of bots) {
-        if (
-            teamCounts[0] <=
-            teamCounts[1]
-        ) {
-            bot.team = 0;
-            teamCounts[0]++;
-        } else {
-            bot.team = 1;
-            teamCounts[1]++;
-        }
-    }
-
-    let safety = 10;
-
-    while (
-        (
-            teamCounts[0] !== 2 ||
-            teamCounts[1] !== 2
-        ) &&
-        safety-- > 0
+for (const bot of bots) {
+    if (
+        teamCounts[0] <=
+        teamCounts[1]
     ) {
-        const from =
-            teamCounts[0] > 2
-                ? 0
-                : teamCounts[1] > 2
-                    ? 1
-                    : null;
-
-        const to =
-            from === 0
-                ? 1
-                : from === 1
-                    ? 0
-                    : null;
-
-        if (
-            from === null ||
-            to === null
-        ) {
-            break;
-        }
-
-        const bot =
-            bots.find(
-                p =>
-                    p.team === from
-            );
-
-        if (!bot) {
-            break;
-        }
-
-        bot.team = to;
-
-        teamCounts[from]--;
-        teamCounts[to]++;
+        bot.team = 0;
+        teamCounts[0]++;
+    } else {
+        bot.team = 1;
+        teamCounts[1]++;
     }
 }
 
+let safety = 10;
+
+while (
+    (
+        teamCounts[0] !== 2 ||
+        teamCounts[1] !== 2
+    ) &&
+    safety-- > 0
+) {
+    const from =
+        teamCounts[0] > 2
+            ? 0
+            : teamCounts[1] > 2
+                ? 1
+                : null;
+
+    const to =
+        from === 0
+            ? 1
+            : from === 1
+                ? 0
+                : null;
+
+    if (
+        from === null ||
+        to === null
+    ) {
+        break;
+    }
+
+    const bot =
+        bots.find(
+            p =>
+                p.team === from
+        );
+
+    if (!bot) {
+        break;
+    }
+
+    bot.team = to;
+
+    teamCounts[from]--;
+    teamCounts[to]++;
+}
+```
+
+}
+
 /* =========================
-   START GAME
+START GAME
 ========================= */
 
 function startGame(room) {
-    if (room.started) {
-        return {
-            ok: false,
-            error: "Gra już się rozpoczęła."
-        };
-    }
+if (room.started) {
+return {
+ok: false,
+error: "Gra już się rozpoczęła."
+};
+}
 
-    if (room.players.length !== 4) {
-        return {
-            ok: false,
-            error:
-                "Do rozpoczęcia potrzebnych jest 4 graczy."
-        };
-    }
-
-    const team0 =
-        room.players.filter(
-            p => p.team === 0
-        );
-
-    const team1 =
-        room.players.filter(
-            p => p.team === 1
-        );
-
-    if (
-        team0.length !== 2 ||
-        team1.length !== 2
-    ) {
-        return {
-            ok: false,
-            error:
-                "Każda drużyna musi mieć po 2 graczy."
-        };
-    }
-
-    /*
-     * Układ przy stole:
-     *
-     * Drużyna 1
-     * Drużyna 2
-     * Drużyna 1
-     * Drużyna 2
-     */
-    room.players = [
-        team0[0],
-        team1[0],
-        team0[1],
-        team1[1]
-    ];
-
-    room.started = true;
-
-    room.game =
-        createGame(
-            room.players
-        );
-
-    dealInitialCards(
-        room.game
-    );
-
-    sendGameState(
-        room
-    );
-
-    scheduleBotTurn(
-        room
-    );
-
+```
+if (room.players.length !== 4) {
     return {
-        ok: true
+        ok: false,
+        error:
+            "Do rozpoczęcia potrzebnych jest 4 graczy."
     };
 }
 
-/* =========================
-   BOT TURN
-========================= */
-
-function scheduleBotTurn(room) {
-    clearTimeout(
-        room.botTimer
+const team0 =
+    room.players.filter(
+        p => p.team === 0
     );
 
-    if (
-        !room.game ||
-        room.game.handFinished
-    ) {
-        return;
-    }
+const team1 =
+    room.players.filter(
+        p => p.team === 1
+    );
 
-    const game =
-        room.game;
+if (
+    team0.length !== 2 ||
+    team1.length !== 2
+) {
+    return {
+        ok: false,
+        error:
+            "Każda drużyna musi mieć po 2 graczy."
+    };
+}
 
-    /*
-     * Podczas wyboru atutu
-     * używamy CHOOSER.
-     */
-    let playerIndex =
-        game.currentPlayer;
+/*
+ * Układ przy stole:
+ *
+ * Drużyna 1
+ * Drużyna 2
+ * Drużyna 1
+ * Drużyna 2
+ */
+room.players = [
+    team0[0],
+    team1[0],
+    team0[1],
+    team1[1]
+];
 
-    if (
-        game.phase === "trump" &&
-        Number.isInteger(
-            game.chooser
-        )
-    ) {
-        playerIndex =
-            game.chooser;
-    }
+room.started = true;
 
-    const player =
-        game.players[
-            playerIndex
-        ];
+room.game =
+    createGame(
+        room.players
+    );
 
-    if (!player) {
-        return;
-    }
+dealInitialCards(
+    room.game
+);
 
-    if (!player.isBot) {
-        return;
-    }
+sendGameState(
+    room
+);
 
-    /*
-     * Podczas Lufy bot nie wykonuje
-     * zwykłego ruchu.
-     */
-    if (
-        game.phase === "lufa"
-    ) {
-        scheduleLufaWindow(
-            room
-        );
+scheduleBotTurn(
+    room
+);
 
-        return;
-    }
+return {
+    ok: true
+};
+```
 
-    room.botTimer =
-        setTimeout(
-            () => {
-                processBotTurn(
-                    room
-                );
-            },
-            700
-        );
 }
 
 /* =========================
-   BOT ACTION
+BOT TURN
+========================= */
+
+function scheduleBotTurn(room) {
+clearTimeout(
+room.botTimer
+);
+
+```
+if (
+    !room.game ||
+    room.game.handFinished
+) {
+    return;
+}
+
+const game =
+    room.game;
+
+/*
+ * Podczas wyboru atutu/specjalnego trybu
+ * używamy CHOOSER.
+ */
+let playerIndex =
+    game.currentPlayer;
+
+if (
+    game.phase === "trump" &&
+    Number.isInteger(
+        game.chooser
+    )
+) {
+    playerIndex =
+        game.chooser;
+}
+
+const player =
+    game.players[
+        playerIndex
+    ];
+
+if (!player) {
+    return;
+}
+
+if (!player.isBot) {
+    return;
+}
+
+/*
+ * Podczas Lufy bot nie wykonuje
+ * zwykłego ruchu.
+ */
+if (
+    game.phase === "lufa"
+) {
+    scheduleLufaWindow(
+        room
+    );
+
+    return;
+}
+
+room.botTimer =
+    setTimeout(
+        () => {
+            processBotTurn(
+                room
+            );
+        },
+        700
+    );
+```
+
+}
+
+/* =========================
+BOT ACTION
 ========================= */
 
 function processBotTurn(room) {
-    const game =
-        room.game;
+const game =
+room.game;
 
-    if (
-        !game ||
-        game.handFinished
-    ) {
-        return;
-    }
+```
+if (
+    !game ||
+    game.handFinished
+) {
+    return;
+}
 
-    let playerIndex =
-        game.currentPlayer;
+let playerIndex =
+    game.currentPlayer;
 
+/*
+ * W fazie wyboru obierający
+ * jest zapisany jako chooser.
+ */
+if (
+    game.phase === "trump" &&
+    Number.isInteger(
+        game.chooser
+    )
+) {
+    playerIndex =
+        game.chooser;
+}
+
+const player =
+    game.players[
+        playerIndex
+    ];
+
+if (
+    !player ||
+    !player.isBot
+) {
+    return;
+}
+
+
+/* =========================
+   BOT WYBIERA TRYB
+========================= */
+
+if (
+    game.phase === "trump"
+) {
     /*
-     * W fazie wyboru obierający
-     * jest zapisany jako chooser.
+     * Najpierw sprawdzamy,
+     * czy bot chce zagrać Lepszą.
      */
-    if (
-        game.phase === "trump" &&
-        Number.isInteger(
-            game.chooser
-        )
-    ) {
-        playerIndex =
-            game.chooser;
-    }
-
-    const player =
-        game.players[
+    const specialMode =
+        chooseBotSpecialMode(
+            game,
             playerIndex
-        ];
+        );
 
-    if (
-        !player ||
-        !player.isBot
-    ) {
-        return;
-    }
-
-    /* =========================
-       BOT OBIERA ATUT
-    ========================= */
-
-    if (
-        game.phase === "trump"
-    ) {
-        const trump =
-            chooseBotTrump(
-                game,
-                playerIndex
-            );
-
+    if (specialMode) {
         const result =
-            chooseTrump(
+            chooseSpecialMode(
                 game,
                 playerIndex,
-                trump
+                specialMode
             );
 
-        if (!result.ok) {
-            return;
-        }
-
-        sendGameState(
-            room
-        );
-
-        scheduleLufaWindow(
-            room
-        );
-
-        return;
-    }
-
-    /* =========================
-       BOT GRA KARTĘ
-    ========================= */
-
-    if (
-        game.phase === "playing"
-    ) {
-        const card =
-            chooseBotCard(
-                game,
-                playerIndex
+        if (result.ok) {
+            sendGameState(
+                room
             );
 
-        if (!card) {
-            return;
-        }
-
-        const result =
-            playCard(
-                game,
-                playerIndex,
-                card
-            );
-
-        if (!result.ok) {
-            return;
-        }
-
-        sendGameState(
-            room
-        );
-
-        if (
-            game.handFinished
-        ) {
-            scheduleNextHand(
+            scheduleLufaWindow(
                 room
             );
 
             return;
         }
-
-        scheduleBotTurn(
-            room
-        );
     }
-}
 
-/* =========================
-   LUFA TIMER
-========================= */
+    /*
+     * Jeżeli bot nie wybrał trybu specjalnego,
+     * wybiera normalny atut.
+     */
+    const trump =
+        chooseBotTrump(
+            game,
+            playerIndex
+        );
 
-function scheduleLufaWindow(room) {
-    clearTimeout(
-        room.lufaTimer
-    );
+    const result =
+        chooseTrump(
+            game,
+            playerIndex,
+            trump
+        );
 
-    const game =
-        room.game;
-
-    if (
-        !game ||
-        game.phase !== "lufa"
-    ) {
+    if (!result.ok) {
         return;
     }
 
-    const remaining =
-        Math.max(
-            0,
-            (game.lufaUntil || 0) -
-            Date.now()
-        );
+    sendGameState(
+        room
+    );
 
-    room.lufaTimer =
-        setTimeout(
-            () => {
-                finishLufa(
-                    room
-                );
-            },
-            remaining
-        );
+    scheduleLufaWindow(
+        room
+    );
+
+    return;
 }
 
+
 /* =========================
-   FINISH LUFA
+   BOT GRA KARTĘ
 ========================= */
 
-function finishLufa(room) {
-    const game =
-        room.game;
+if (
+    game.phase === "playing"
+) {
+    const card =
+        chooseBotCard(
+            game,
+            playerIndex
+        );
 
-    if (
-        !game ||
-        game.phase !== "lufa"
-    ) {
+    if (!card) {
         return;
     }
 
     const result =
-        finishLufaWindow(
-            game
+        playCard(
+            game,
+            playerIndex,
+            card
         );
 
     if (!result.ok) {
@@ -649,9 +627,9 @@ function finishLufa(room) {
     );
 
     if (
-        result.secondWindow
+        game.handFinished
     ) {
-        scheduleLufaWindow(
+        scheduleNextHand(
             room
         );
 
@@ -662,703 +640,809 @@ function finishLufa(room) {
         room
     );
 }
+```
 
-/* =========================
-   NEXT HAND
-========================= */
-
-function scheduleNextHand(room) {
-    clearTimeout(
-        room.botTimer
-    );
-
-    room.botTimer =
-        setTimeout(
-            () => {
-                if (
-                    !room.game ||
-                    !room.game.handFinished
-                ) {
-                    return;
-                }
-
-                startNextHand(
-                    room.game
-                );
-
-                sendGameState(
-                    room
-                );
-
-                scheduleBotTurn(
-                    room
-                );
-            },
-            2500
-        );
 }
 
 /* =========================
-   SOCKET CONNECTION
+LUFA TIMER
+========================= */
+
+function scheduleLufaWindow(room) {
+clearTimeout(
+room.lufaTimer
+);
+
+```
+const game =
+    room.game;
+
+if (
+    !game ||
+    game.phase !== "lufa"
+) {
+    return;
+}
+
+const remaining =
+    Math.max(
+        0,
+        (game.lufaUntil || 0) -
+        Date.now()
+    );
+
+room.lufaTimer =
+    setTimeout(
+        () => {
+            finishLufa(
+                room
+            );
+        },
+        remaining
+    );
+```
+
+}
+
+/* =========================
+FINISH LUFA
+========================= */
+
+function finishLufa(room) {
+const game =
+room.game;
+
+```
+if (
+    !game ||
+    game.phase !== "lufa"
+) {
+    return;
+}
+
+const result =
+    finishLufaWindow(
+        game
+    );
+
+if (!result.ok) {
+    return;
+}
+
+sendGameState(
+    room
+);
+
+if (
+    result.secondWindow
+) {
+    scheduleLufaWindow(
+        room
+    );
+
+    return;
+}
+
+scheduleBotTurn(
+    room
+);
+```
+
+}
+
+/* =========================
+NEXT HAND
+========================= */
+
+function scheduleNextHand(room) {
+clearTimeout(
+room.botTimer
+);
+
+```
+room.botTimer =
+    setTimeout(
+        () => {
+            if (
+                !room.game ||
+                !room.game.handFinished
+            ) {
+                return;
+            }
+
+            startNextHand(
+                room.game
+            );
+
+            sendGameState(
+                room
+            );
+
+            scheduleBotTurn(
+                room
+            );
+        },
+        2500
+    );
+```
+
+}
+
+/* =========================
+SOCKET CONNECTION
 ========================= */
 
 io.on(
-    "connection",
-    socket => {
+"connection",
+socket => {
 
-        /* =========================
-           JOIN
-        ========================= */
+```
+    /* =========================
+       JOIN
+    ========================= */
 
-        socket.on(
-            "joinRoom",
-            data => {
-                const nickname =
-                    String(
-                        data?.nickname || ""
-                    ).trim();
+    socket.on(
+        "joinRoom",
+        data => {
+            const nickname =
+                String(
+                    data?.nickname || ""
+                ).trim();
 
-                const roomName =
-                    String(
-                        data?.room || ""
-                    ).trim();
+            const roomName =
+                String(
+                    data?.room || ""
+                ).trim();
 
-                if (!nickname) {
-                    sendError(
-                        socket,
-                        "Podaj nick."
-                    );
-                    return;
-                }
+            if (!nickname) {
+                sendError(
+                    socket,
+                    "Podaj nick."
+                );
+                return;
+            }
 
-                if (!roomName) {
-                    sendError(
-                        socket,
-                        "Podaj nazwę pokoju."
-                    );
-                    return;
-                }
+            if (!roomName) {
+                sendError(
+                    socket,
+                    "Podaj nazwę pokoju."
+                );
+                return;
+            }
 
-                if (nickname.length > 20) {
-                    sendError(
-                        socket,
-                        "Nick jest za długi."
-                    );
-                    return;
-                }
+            if (nickname.length > 20) {
+                sendError(
+                    socket,
+                    "Nick jest za długi."
+                );
+                return;
+            }
 
-                if (roomName.length > 20) {
-                    sendError(
-                        socket,
-                        "Nazwa pokoju jest za długa."
-                    );
-                    return;
-                }
+            if (roomName.length > 20) {
+                sendError(
+                    socket,
+                    "Nazwa pokoju jest za długa."
+                );
+                return;
+            }
 
-                let room =
-                    getRoom(
+            let room =
+                getRoom(
+                    roomName
+                );
+
+            if (!room) {
+                room =
+                    createRoom(
                         roomName
                     );
-
-                if (!room) {
-                    room =
-                        createRoom(
-                            roomName
-                        );
-                }
-
-                if (room.started) {
-                    sendError(
-                        socket,
-                        "Ta gra już się rozpoczęła."
-                    );
-                    return;
-                }
-
-                if (
-                    room.players.length >= 4
-                ) {
-                    sendError(
-                        socket,
-                        "Pokój jest pełny."
-                    );
-                    return;
-                }
-
-                const duplicate =
-                    room.players.some(
-                        p =>
-                            p.name
-                                .toLowerCase() ===
-                            nickname.toLowerCase()
-                    );
-
-                if (duplicate) {
-                    sendError(
-                        socket,
-                        "Ten nick jest już zajęty."
-                    );
-                    return;
-                }
-
-                const player = {
-                    socketId:
-                        socket.id,
-
-                    name:
-                        nickname,
-
-                    team:
-                        null,
-
-                    isBot:
-                        false
-                };
-
-                room.players.push(
-                    player
-                );
-
-                socket.join(
-                    room.name
-                );
-
-                socket.data.roomName =
-                    room.name;
-
-                socket.data.playerId =
-                    socket.id;
-
-                sendLobby(
-                    room
-                );
             }
-        );
 
-        /* =========================
-           TEAM
-        ========================= */
-
-        socket.on(
-            "chooseTeam",
-            data => {
-                const room =
-                    getRoom(
-                        socket.data.roomName
-                    );
-
-                if (!room) {
-                    return;
-                }
-
-                const team =
-                    Number(
-                        data?.team
-                    );
-
-                const result =
-                    chooseTeam(
-                        room,
-                        socket.id,
-                        team
-                    );
-
-                if (!result.ok) {
-                    sendError(
-                        socket,
-                        result.error
-                    );
-
-                    return;
-                }
-
-                sendLobby(
-                    room
+            if (room.started) {
+                sendError(
+                    socket,
+                    "Ta gra już się rozpoczęła."
                 );
+                return;
             }
-        );
 
-        /* =========================
-           START WITH BOTS
-        ========================= */
-
-        socket.on(
-            "startGameWithBots",
-            () => {
-                const room =
-                    getRoom(
-                        socket.data.roomName
-                    );
-
-                if (!room) {
-                    return;
-                }
-
-                if (room.started) {
-                    return;
-                }
-
-                fillBots(
-                    room.players
+            if (
+                room.players.length >= 4
+            ) {
+                sendError(
+                    socket,
+                    "Pokój jest pełny."
                 );
-
-                assignBotTeams(
-                    room
-                );
-
-                const result =
-                    startGame(
-                        room
-                    );
-
-                if (!result.ok) {
-                    room.players =
-                        room.players.filter(
-                            p =>
-                                !p.isBot
-                        );
-
-                    sendError(
-                        socket,
-                        result.error
-                    );
-
-                    sendLobby(
-                        room
-                    );
-
-                    return;
-                }
-
-                sendGameState(
-                    room
-                );
+                return;
             }
-        );
 
-        /* =========================
-           WYBÓR ATUTU
-        ========================= */
-
-        socket.on(
-            "chooseTrump",
-            data => {
-                const room =
-                    getRoom(
-                        socket.data.roomName
-                    );
-
-                if (
-                    !room ||
-                    !room.game
-                ) {
-                    return;
-                }
-
-                const playerIndex =
-                    room.game.players.findIndex(
-                        p =>
-                            p.socketId ===
-                            socket.id
-                    );
-
-                if (
-                    playerIndex === -1
-                ) {
-                    return;
-                }
-
-                const result =
-                    chooseTrump(
-                        room.game,
-                        playerIndex,
-                        data?.trump
-                    );
-
-                if (!result.ok) {
-                    sendError(
-                        socket,
-                        result.error
-                    );
-
-                    return;
-                }
-
-                sendGameState(
-                    room
+            const duplicate =
+                room.players.some(
+                    p =>
+                        p.name
+                            .toLowerCase() ===
+                        nickname.toLowerCase()
                 );
 
-                scheduleLufaWindow(
-                    room
+            if (duplicate) {
+                sendError(
+                    socket,
+                    "Ten nick jest już zajęty."
                 );
+                return;
             }
-        );
 
-        /* =========================
-           LEPSZA / GORSZA
-        ========================= */
+            const player = {
+                socketId:
+                    socket.id,
 
-        socket.on(
-            "chooseSpecialMode",
-            data => {
-                const room =
-                    getRoom(
-                        socket.data.roomName
-                    );
+                name:
+                    nickname,
 
-                if (
-                    !room ||
-                    !room.game
-                ) {
-                    return;
-                }
+                team:
+                    null,
 
-                const playerIndex =
-                    room.game.players.findIndex(
-                        p =>
-                            p.socketId ===
-                            socket.id
-                    );
+                isBot:
+                    false
+            };
 
-                if (
-                    playerIndex === -1
-                ) {
-                    return;
-                }
+            room.players.push(
+                player
+            );
 
-                const mode =
-                    String(
-                        data?.mode || ""
-                    ).toLowerCase();
-
-                const result =
-                    chooseSpecialMode(
-                        room.game,
-                        playerIndex,
-                        mode
-                    );
-
-                if (!result.ok) {
-                    sendError(
-                        socket,
-                        result.error
-                    );
-
-                    return;
-                }
-
-                sendGameState(
-                    room
-                );
-
-                scheduleLufaWindow(
-                    room
-                );
-            }
-        );
-
-        /* =========================
-           LUFA
-        ========================= */
-
-        socket.on(
-            "callLufa",
-            () => {
-                const room =
-                    getRoom(
-                        socket.data.roomName
-                    );
-
-                if (
-                    !room ||
-                    !room.game
-                ) {
-                    return;
-                }
-
-                const playerIndex =
-                    room.game.players.findIndex(
-                        p =>
-                            p.socketId ===
-                            socket.id
-                    );
-
-                if (
-                    playerIndex === -1
-                ) {
-                    return;
-                }
-
-                const result =
-                    callLufa(
-                        room.game,
-                        playerIndex
-                    );
-
-                if (!result.ok) {
-                    sendError(
-                        socket,
-                        result.error
-                    );
-
-                    return;
-                }
-
-                sendGameState(
-                    room
-                );
-
-                scheduleLufaWindow(
-                    room
-                );
-            }
-        );
-
-        /* =========================
-           Z POWROTEM
-        ========================= */
-
-        socket.on(
-            "callBackLufa",
-            () => {
-                const room =
-                    getRoom(
-                        socket.data.roomName
-                    );
-
-                if (
-                    !room ||
-                    !room.game
-                ) {
-                    return;
-                }
-
-                const playerIndex =
-                    room.game.players.findIndex(
-                        p =>
-                            p.socketId ===
-                            socket.id
-                    );
-
-                if (
-                    playerIndex === -1
-                ) {
-                    return;
-                }
-
-                const result =
-                    callBackLufa(
-                        room.game,
-                        playerIndex
-                    );
-
-                if (!result.ok) {
-                    sendError(
-                        socket,
-                        result.error
-                    );
-
-                    return;
-                }
-
-                sendGameState(
-                    room
-                );
-
-                scheduleLufaWindow(
-                    room
-                );
-            }
-        );
-
-        /* =========================
-           PLAY CARD
-        ========================= */
-
-        socket.on(
-            "playCard",
-            data => {
-                const room =
-                    getRoom(
-                        socket.data.roomName
-                    );
-
-                if (
-                    !room ||
-                    !room.game
-                ) {
-                    return;
-                }
-
-                const playerIndex =
-                    room.game.players.findIndex(
-                        p =>
-                            p.socketId ===
-                            socket.id
-                    );
-
-                if (
-                    playerIndex === -1
-                ) {
-                    return;
-                }
-
-                const card =
-                    data?.card;
-
-                if (!card) {
-                    return;
-                }
-
-                const result =
-                    playCard(
-                        room.game,
-                        playerIndex,
-                        card
-                    );
-
-                if (!result.ok) {
-                    sendError(
-                        socket,
-                        result.error
-                    );
-
-                    return;
-                }
-
-                sendGameState(
-                    room
-                );
-
-                if (
-                    room.game.handFinished
-                ) {
-                    scheduleNextHand(
-                        room
-                    );
-
-                    return;
-                }
-
-                scheduleBotTurn(
-                    room
-                );
-            }
-        );
-
-        /* =========================
-           LEAVE
-        ========================= */
-
-        socket.on(
-            "leaveRoom",
-            () => {
-                leaveRoom(
-                    socket
-                );
-            }
-        );
-
-        /* =========================
-           DISCONNECT
-        ========================= */
-
-        socket.on(
-            "disconnect",
-            () => {
-                leaveRoom(
-                    socket
-                );
-            }
-        );
-    }
-);
-
-/* =========================
-   LEAVE ROOM
-========================= */
-
-function leaveRoom(socket) {
-    const roomName =
-        socket.data.roomName;
-
-    if (!roomName) {
-        return;
-    }
-
-    const room =
-        rooms.get(
-            roomName
-        );
-
-    if (!room) {
-        return;
-    }
-
-    room.players =
-        room.players.filter(
-            player =>
-                player.socketId !==
-                socket.id
-        );
-
-    socket.leave(
-        room.name
-    );
-
-    if (!room.started) {
-        if (
-            room.players.length === 0
-        ) {
-            rooms.delete(
+            socket.join(
                 room.name
             );
-        } else {
+
+            socket.data.roomName =
+                room.name;
+
+            socket.data.playerId =
+                socket.id;
+
             sendLobby(
                 room
             );
         }
-
-        return;
-    }
-
-    clearTimeout(
-        room.botTimer
     );
 
-    clearTimeout(
-        room.lufaTimer
+
+    /* =========================
+       TEAM
+    ========================= */
+
+    socket.on(
+        "chooseTeam",
+        data => {
+            const room =
+                getRoom(
+                    socket.data.roomName
+                );
+
+            if (!room) {
+                return;
+            }
+
+            const team =
+                Number(
+                    data?.team
+                );
+
+            const result =
+                chooseTeam(
+                    room,
+                    socket.id,
+                    team
+                );
+
+            if (!result.ok) {
+                sendError(
+                    socket,
+                    result.error
+                );
+
+                return;
+            }
+
+            sendLobby(
+                room
+            );
+        }
     );
 
-    io.to(
-        room.name
-    ).emit(
-        "message",
-        "Gracz opuścił grę."
+
+    /* =========================
+       START WITH BOTS
+    ========================= */
+
+    socket.on(
+        "startGameWithBots",
+        () => {
+            const room =
+                getRoom(
+                    socket.data.roomName
+                );
+
+            if (!room) {
+                return;
+            }
+
+            if (room.started) {
+                return;
+            }
+
+            fillBots(
+                room.players
+            );
+
+            assignBotTeams(
+                room
+            );
+
+            const result =
+                startGame(
+                    room
+                );
+
+            if (!result.ok) {
+                room.players =
+                    room.players.filter(
+                        p =>
+                            !p.isBot
+                    );
+
+                sendError(
+                    socket,
+                    result.error
+                );
+
+                sendLobby(
+                    room
+                );
+
+                return;
+            }
+
+            sendGameState(
+                room
+            );
+        }
     );
 
+
+    /* =========================
+       WYBÓR ATUTU
+    ========================= */
+
+    socket.on(
+        "chooseTrump",
+        data => {
+            const room =
+                getRoom(
+                    socket.data.roomName
+                );
+
+            if (
+                !room ||
+                !room.game
+            ) {
+                return;
+            }
+
+            const playerIndex =
+                room.game.players.findIndex(
+                    p =>
+                        p.socketId ===
+                        socket.id
+                );
+
+            if (
+                playerIndex === -1
+            ) {
+                return;
+            }
+
+            const result =
+                chooseTrump(
+                    room.game,
+                    playerIndex,
+                    data?.trump
+                );
+
+            if (!result.ok) {
+                sendError(
+                    socket,
+                    result.error
+                );
+
+                return;
+            }
+
+            sendGameState(
+                room
+            );
+
+            scheduleLufaWindow(
+                room
+            );
+        }
+    );
+
+
+    /* =========================
+       LEPSZA / GORSZA
+    ========================= */
+
+    socket.on(
+        "chooseSpecialMode",
+        data => {
+            const room =
+                getRoom(
+                    socket.data.roomName
+                );
+
+            if (
+                !room ||
+                !room.game
+            ) {
+                return;
+            }
+
+            const playerIndex =
+                room.game.players.findIndex(
+                    p =>
+                        p.socketId ===
+                        socket.id
+                );
+
+            if (
+                playerIndex === -1
+            ) {
+                return;
+            }
+
+            const mode =
+                String(
+                    data?.mode || ""
+                ).toLowerCase();
+
+            const result =
+                chooseSpecialMode(
+                    room.game,
+                    playerIndex,
+                    mode
+                );
+
+            if (!result.ok) {
+                sendError(
+                    socket,
+                    result.error
+                );
+
+                return;
+            }
+
+            sendGameState(
+                room
+            );
+
+            scheduleLufaWindow(
+                room
+            );
+        }
+    );
+
+
+    /* =========================
+       LUFA
+    ========================= */
+
+    socket.on(
+        "callLufa",
+        () => {
+            const room =
+                getRoom(
+                    socket.data.roomName
+                );
+
+            if (
+                !room ||
+                !room.game
+            ) {
+                return;
+            }
+
+            const playerIndex =
+                room.game.players.findIndex(
+                    p =>
+                        p.socketId ===
+                        socket.id
+                );
+
+            if (
+                playerIndex === -1
+            ) {
+                return;
+            }
+
+            const result =
+                callLufa(
+                    room.game,
+                    playerIndex
+                );
+
+            if (!result.ok) {
+                sendError(
+                    socket,
+                    result.error
+                );
+
+                return;
+            }
+
+            sendGameState(
+                room
+            );
+
+            scheduleLufaWindow(
+                room
+            );
+        }
+    );
+
+
+    /* =========================
+       Z POWROTEM
+    ========================= */
+
+    socket.on(
+        "callBackLufa",
+        () => {
+            const room =
+                getRoom(
+                    socket.data.roomName
+                );
+
+            if (
+                !room ||
+                !room.game
+            ) {
+                return;
+            }
+
+            const playerIndex =
+                room.game.players.findIndex(
+                    p =>
+                        p.socketId ===
+                        socket.id
+                );
+
+            if (
+                playerIndex === -1
+            ) {
+                return;
+            }
+
+            const result =
+                callBackLufa(
+                    room.game,
+                    playerIndex
+                );
+
+            if (!result.ok) {
+                sendError(
+                    socket,
+                    result.error
+                );
+
+                return;
+            }
+
+            sendGameState(
+                room
+            );
+
+            scheduleLufaWindow(
+                room
+            );
+        }
+    );
+
+
+    /* =========================
+       PLAY CARD
+    ========================= */
+
+    socket.on(
+        "playCard",
+        data => {
+            const room =
+                getRoom(
+                    socket.data.roomName
+                );
+
+            if (
+                !room ||
+                !room.game
+            ) {
+                return;
+            }
+
+            const playerIndex =
+                room.game.players.findIndex(
+                    p =>
+                        p.socketId ===
+                        socket.id
+                );
+
+            if (
+                playerIndex === -1
+            ) {
+                return;
+            }
+
+            const card =
+                data?.card;
+
+            if (!card) {
+                return;
+            }
+
+            const result =
+                playCard(
+                    room.game,
+                    playerIndex,
+                    card
+                );
+
+            if (!result.ok) {
+                sendError(
+                    socket,
+                    result.error
+                );
+
+                return;
+            }
+
+            sendGameState(
+                room
+            );
+
+            if (
+                room.game.handFinished
+            ) {
+                scheduleNextHand(
+                    room
+                );
+
+                return;
+            }
+
+            scheduleBotTurn(
+                room
+            );
+        }
+    );
+
+
+    /* =========================
+       LEAVE
+    ========================= */
+
+    socket.on(
+        "leaveRoom",
+        () => {
+            leaveRoom(
+                socket
+            );
+        }
+    );
+
+
+    /* =========================
+       DISCONNECT
+    ========================= */
+
+    socket.on(
+        "disconnect",
+        () => {
+            leaveRoom(
+                socket
+            );
+        }
+    );
+}
+```
+
+);
+
+/* =========================
+LEAVE ROOM
+========================= */
+
+function leaveRoom(socket) {
+const roomName =
+socket.data.roomName;
+
+```
+if (!roomName) {
+    return;
+}
+
+const room =
+    rooms.get(
+        roomName
+    );
+
+if (!room) {
+    return;
+}
+
+room.players =
+    room.players.filter(
+        player =>
+            player.socketId !==
+            socket.id
+    );
+
+socket.leave(
+    room.name
+);
+
+if (!room.started) {
     if (
-        room.players.filter(
-            p => !p.isBot
-        ).length === 0
+        room.players.length === 0
     ) {
         rooms.delete(
             room.name
         );
+    } else {
+        sendLobby(
+            room
+        );
     }
+
+    return;
+}
+
+clearTimeout(
+    room.botTimer
+);
+
+clearTimeout(
+    room.lufaTimer
+);
+
+io.to(
+    room.name
+).emit(
+    "message",
+    "Gracz opuścił grę."
+);
+
+if (
+    room.players.filter(
+        p => !p.isBot
+    ).length === 0
+) {
+    rooms.delete(
+        room.name
+    );
+}
+```
+
 }
 
 /* =========================
-   START SERVER
+START SERVER
 ========================= */
 
 server.listen(
-    PORT,
-    "0.0.0.0",
-    () => {
-        console.log(
-            `66 server działa na porcie ${PORT}`
-        );
-    }
+PORT,
+"0.0.0.0",
+() => {
+console.log(
+`66 server działa na porcie ${PORT}`
 );
-```
+}
+);
