@@ -96,13 +96,56 @@ function getPlayerTeam(game, playerIndex) {
         return player.team;
     }
 
-    /*
-       Awaryjnie zachowujemy stary układ,
-       gdyby gra została utworzona bez
-       informacji o drużynie.
-    */
-
     return playerIndex % 2;
+}
+
+
+/* =========================
+   NAZWA DRUŻYNY
+========================= */
+
+function getTeamName(
+    game,
+    team
+) {
+
+    const players =
+        game.players.filter(
+            (player, index) =>
+                getPlayerTeam(
+                    game,
+                    index
+                ) === team
+        );
+
+
+    const humanNames =
+        players
+            .filter(
+                player => !player.bot
+            )
+            .map(
+                player => player.name
+            );
+
+
+    if (humanNames.length > 0) {
+        return humanNames.join(" + ");
+    }
+
+
+    const names =
+        players.map(
+            player => player.name
+        );
+
+
+    if (names.length > 0) {
+        return names.join(" + ");
+    }
+
+
+    return `Drużyna ${team + 1}`;
 }
 
 
@@ -141,7 +184,7 @@ function createGame(players) {
         ],
 
         /*
-           Punkty zdobyte w aktualnym rozdaniu.
+           Punkty aktualnego rozdania.
         */
 
         scores: [
@@ -150,7 +193,7 @@ function createGame(players) {
         ],
 
         /*
-           Suma punktów z zakończonych rozdań.
+           Punkty z zakończonych rozdań.
         */
 
         overallScores: [
@@ -159,8 +202,7 @@ function createGame(players) {
         ],
 
         /*
-           Liczba wygranych całych rozdań
-           do 66.
+           Liczba wygranych całych rozdań.
         */
 
         gameWins: [
@@ -169,9 +211,30 @@ function createGame(players) {
         ],
 
         /*
-           Zabezpieczenie przed wielokrotnym
-           zakończeniem tego samego rozdania.
+           Meldunki oczekujące na potwierdzenie
+           przez wygranie sztycha.
+
+           Przykład:
+
+           pendingMelds[0] = 20
+
+           oznacza, że drużyna 1 ma
+           niezatwierdzony meldunek za 20.
         */
+
+        pendingMelds: [
+            0,
+            0
+        ],
+
+        /*
+           Informacja, kto zgłosił meldunek.
+        */
+
+        pendingMeldPlayers: [
+            [],
+            []
+        ],
 
         handFinished: false,
 
@@ -230,12 +293,32 @@ function dealInitialCards(game) {
     ];
 
     /*
-       Każdy dostaje 3 karty.
+       Czyścimy oczekujące meldunki
+       przy rozpoczęciu nowego rozdania.
+    */
+
+    game.pendingMelds = [
+        0,
+        0
+    ];
+
+    game.pendingMeldPlayers = [
+        [],
+        []
+    ];
+
+
+    /*
+       Rozdajemy po 3 karty.
     */
 
     for (let i = 0; i < 3; i++) {
 
-        for (let player = 0; player < 4; player++) {
+        for (
+            let player = 0;
+            player < 4;
+            player++
+        ) {
 
             const card =
                 game.deck.pop();
@@ -245,6 +328,7 @@ function dealInitialCards(game) {
             }
         }
     }
+
 
     game.message =
         `Gracz ${game.players[game.currentPlayer].name} obiera kolor.`;
@@ -259,7 +343,11 @@ function dealRemainingCards(game) {
 
     for (let i = 0; i < 3; i++) {
 
-        for (let player = 0; player < 4; player++) {
+        for (
+            let player = 0;
+            player < 4;
+            player++
+        ) {
 
             const card =
                 game.deck.pop();
@@ -269,6 +357,7 @@ function dealRemainingCards(game) {
             }
         }
     }
+
 
     game.phase = "playing";
 
@@ -286,19 +375,28 @@ function dealRemainingCards(game) {
    OBIERANIE KOLORU
 ========================= */
 
-function chooseTrump(game, suit) {
+function chooseTrump(
+    game,
+    suit
+) {
 
     if (game.phase !== "trump") {
+
         return {
-            error: "Nie można teraz obierać koloru."
+            error:
+                "Nie można teraz obierać koloru."
         };
     }
 
+
     if (!SUITS.includes(suit)) {
+
         return {
-            error: "Nieprawidłowy kolor."
+            error:
+                "Nieprawidłowy kolor."
         };
     }
+
 
     game.trump = suit;
 
@@ -323,6 +421,7 @@ function beatsCard(
         return true;
     }
 
+
     const candidateTrump =
         candidate.suit === game.trump;
 
@@ -330,16 +429,13 @@ function beatsCard(
         current.suit === game.trump;
 
 
-    /*
-       Trump bije nietrump.
-    */
-
     if (
         candidateTrump &&
         !currentTrump
     ) {
         return true;
     }
+
 
     if (
         !candidateTrump &&
@@ -349,12 +445,6 @@ function beatsCard(
     }
 
 
-    /*
-       Jeżeli obie karty są różnego
-       koloru i żadna nie jest atutem,
-       nie mogą się wzajemnie bić.
-    */
-
     if (
         candidate.suit !==
         current.suit
@@ -362,11 +452,6 @@ function beatsCard(
         return false;
     }
 
-
-    /*
-       Ten sam kolor:
-       wyższa karta wygrywa.
-    */
 
     return (
         RANK_POWER[candidate.rank] >
@@ -385,11 +470,14 @@ function getWinningCard(game) {
         return null;
     }
 
+
     const leadSuit =
         game.trick[0].card.suit;
 
+
     let winner =
         game.trick[0];
+
 
     for (
         let i = 1;
@@ -400,6 +488,7 @@ function getWinningCard(game) {
         const play =
             game.trick[i];
 
+
         if (
             beatsCard(
                 game,
@@ -408,9 +497,11 @@ function getWinningCard(game) {
                 leadSuit
             )
         ) {
+
             winner = play;
         }
     }
+
 
     return winner;
 }
@@ -428,22 +519,20 @@ function getLegalCards(
     const hand =
         game.hands[playerIndex];
 
+
     if (!hand || !hand.length) {
         return [];
     }
 
-    /*
-       Jeżeli nie ma jeszcze
-       rozpoczętego sztycha,
-       można zagrać wszystko.
-    */
 
     if (!game.trick.length) {
         return [...hand];
     }
 
+
     const leadSuit =
         game.trick[0].card.suit;
+
 
     const cardsOfLeadSuit =
         hand.filter(
@@ -451,15 +540,12 @@ function getLegalCards(
                 card.suit === leadSuit
         );
 
-    /*
-       Jeżeli mamy kolor wyjścia,
-       musimy nim zagrać.
-    */
 
     if (cardsOfLeadSuit.length > 0) {
 
         const winner =
             getWinningCard(game);
+
 
         const cardsThatBeat =
             cardsOfLeadSuit.filter(
@@ -472,28 +558,15 @@ function getLegalCards(
                     )
             );
 
-        /*
-           Jeżeli możemy pobić,
-           MUSIMY pobić.
-        */
 
         if (cardsThatBeat.length > 0) {
             return cardsThatBeat;
         }
 
-        /*
-           Nie możemy pobić,
-           więc możemy zagrać dowolną
-           kartę tego koloru.
-        */
 
         return cardsOfLeadSuit;
     }
 
-    /*
-       Nie mamy koloru wyjścia.
-       Możemy zagrać dowolną kartę.
-    */
 
     return [...hand];
 }
@@ -515,10 +588,13 @@ function isLegalCard(
             playerIndex
         );
 
+
     return legal.some(
         legalCard =>
-            legalCard.suit === card.suit &&
-            legalCard.rank === card.rank
+            legalCard.suit ===
+                card.suit &&
+            legalCard.rank ===
+                card.rank
     );
 }
 
@@ -536,16 +612,20 @@ function playCard(
     if (game.handFinished) {
 
         return {
-            error: "Rozdanie już się zakończyło."
+            error:
+                "Rozdanie już się zakończyło."
         };
     }
+
 
     if (game.phase !== "playing") {
 
         return {
-            error: "Nie można teraz zagrać karty."
+            error:
+                "Nie można teraz zagrać karty."
         };
     }
+
 
     if (
         playerIndex !==
@@ -553,9 +633,11 @@ function playCard(
     ) {
 
         return {
-            error: "To nie jest Twoja kolej."
+            error:
+                "To nie jest Twoja kolej."
         };
     }
+
 
     if (
         !card ||
@@ -564,9 +646,11 @@ function playCard(
     ) {
 
         return {
-            error: "Nieprawidłowa karta."
+            error:
+                "Nieprawidłowa karta."
         };
     }
+
 
     if (
         !isLegalCard(
@@ -577,29 +661,31 @@ function playCard(
     ) {
 
         return {
-            error: "Nie możesz zagrać tej karty."
+            error:
+                "Nie możesz zagrać tej karty."
         };
     }
 
 
-    /*
-       Znajdujemy kartę w ręce.
-    */
-
     const hand =
         game.hands[playerIndex];
+
 
     const cardIndex =
         hand.findIndex(
             handCard =>
-                handCard.suit === card.suit &&
-                handCard.rank === card.rank
+                handCard.suit ===
+                    card.suit &&
+                handCard.rank ===
+                    card.rank
         );
+
 
     if (cardIndex === -1) {
 
         return {
-            error: "Nie masz tej karty."
+            error:
+                "Nie masz tej karty."
         };
     }
 
@@ -611,27 +697,39 @@ function playCard(
         )[0];
 
 
+    const team =
+        getPlayerTeam(
+            game,
+            playerIndex
+        );
+
+
     game.trick.push({
+
         playerIndex,
 
         playerName:
             game.players[playerIndex].name,
 
-        team:
-            getPlayerTeam(
-                game,
-                playerIndex
-            ),
+        team,
 
-        card: playedCard
+        card:
+            playedCard
     });
 
 
     /*
-       Meld:
-       obecna wersja nalicza go od razu.
-       W punkcie 7 zmienimy to na punkty
-       oczekujące do czasu wygrania sztycha.
+       MELDUNEK
+
+       Meldunek jest tylko zgłoszony.
+
+       NIE dodajemy jeszcze punktów
+       do game.scores.
+
+       Trafiają one do pendingMelds.
+
+       Punkty zostaną zatwierdzone
+       dopiero po wygraniu sztycha.
     */
 
     if (
@@ -644,34 +742,55 @@ function playCard(
                 handCard =>
                     handCard.suit ===
                         playedCard.suit &&
-                    handCard.rank === "K"
+                    handCard.rank ===
+                        "K"
             );
+
 
         if (hasKing) {
 
-            const team =
-                getPlayerTeam(
-                    game,
-                    playerIndex
-                );
-
             const meldPoints =
-                playedCard.suit === game.trump
+                playedCard.suit ===
+                    game.trump
                     ? 40
                     : 20;
 
-            game.scores[team] +=
+
+            /*
+               Jeżeli drużyna ma już
+               oczekujący meldunek,
+               dokładamy kolejny.
+
+               Normalnie może to wystąpić
+               przy kilku meldunkach.
+            */
+
+            game.pendingMelds[team] +=
                 meldPoints;
 
+
+            game.pendingMeldPlayers[team]
+                .push({
+                    playerIndex,
+                    playerName:
+                        game.players[
+                            playerIndex
+                        ].name,
+                    suit:
+                        playedCard.suit,
+                    points:
+                        meldPoints
+                });
+
+
             game.message =
-                `${game.players[playerIndex].name} melduje ${playedCard.suit} — +${meldPoints}`;
+                `${game.players[playerIndex].name} melduje ${playedCard.suit} — oczekuje na wygrany sztych.`;
         }
     }
 
 
     /*
-       Jeżeli mamy 4 karty,
-       kończymy sztych.
+       Cztery karty = koniec sztycha.
     */
 
     if (game.trick.length === 4) {
@@ -684,22 +803,75 @@ function playCard(
     }
 
 
-    /*
-       Następny gracz zgodnie
-       z ruchem zgodnym z ruchem
-       wskazówek zegara.
-    */
-
     game.currentPlayer =
         (playerIndex + 1) % 4;
 
 
-    game.message =
-        `Kolej ${game.players[game.currentPlayer].name}.`;
+    /*
+       Jeżeli nie było meldunku,
+       normalny komunikat.
+    */
+
+    if (
+        !(
+            game.trick.length === 1 &&
+            playedCard.rank === "Q" &&
+            game.pendingMeldPlayers[team].some(
+                meld =>
+                    meld.playerIndex ===
+                    playerIndex
+            )
+        )
+    ) {
+
+        game.message =
+            `Kolej ${game.players[game.currentPlayer].name}.`;
+    }
+
 
     return {
         success: true
     };
+}
+
+
+/* =========================
+   ZATWIERDZANIE MELDUNKÓW
+========================= */
+
+function confirmPendingMelds(
+    game,
+    team
+) {
+
+    const pending =
+        game.pendingMelds[team];
+
+
+    if (
+        !pending ||
+        pending <= 0
+    ) {
+        return 0;
+    }
+
+
+    /*
+       Dopiero teraz meldunek
+       trafia do punktów gry.
+    */
+
+    game.scores[team] +=
+        pending;
+
+
+    game.pendingMelds[team] = 0;
+
+
+    game.pendingMeldPlayers[team] = [];
+
+
+    return pending;
 }
 
 
@@ -712,12 +884,15 @@ function finishTrick(game) {
     const winner =
         getWinningCard(game);
 
+
     if (!winner) {
         return;
     }
 
+
     const winnerIndex =
         winner.playerIndex;
+
 
     const winnerTeam =
         getPlayerTeam(
@@ -727,7 +902,7 @@ function finishTrick(game) {
 
 
     /*
-       Liczymy punkty kart.
+       Najpierw punkty kart.
     */
 
     const trickPoints =
@@ -735,13 +910,13 @@ function finishTrick(game) {
             game.trick
         );
 
+
     game.scores[winnerTeam] +=
         trickPoints;
 
 
     /*
-       Liczymy liczbę wygranych
-       sztychów przez drużynę.
+       Zliczamy sztych.
     */
 
     game.tricksWon[winnerTeam]++;
@@ -752,7 +927,25 @@ function finishTrick(game) {
 
 
     /*
-       Czy drużyna osiągnęła 66?
+       TERAZ sprawdzamy meldunki.
+
+       Jeżeli zwycięska drużyna ma
+       oczekujący meldunek, dopiero
+       teraz go zatwierdzamy.
+    */
+
+    const confirmedMeldPoints =
+        confirmPendingMelds(
+            game,
+            winnerTeam
+        );
+
+
+    /*
+       Najpierw sprawdzamy 66,
+       bo zarówno punkty kart,
+       jak i zatwierdzony meldunek
+       są już w scores.
     */
 
     if (
@@ -766,20 +959,32 @@ function finishTrick(game) {
 
 
     /*
-       Kolejny sztych zaczyna
-       zwycięzca poprzedniego.
+       Następny sztych zaczyna zwycięzca.
     */
 
     game.currentPlayer =
         winnerIndex;
 
+
     game.leader =
         winnerIndex;
 
+
     game.trick = [];
 
-    game.message =
-        `${game.players[winnerIndex].name} bierze sztycha (+${trickPoints}).`;
+
+    if (
+        confirmedMeldPoints > 0
+    ) {
+
+        game.message =
+            `${game.players[winnerIndex].name} bierze sztycha (+${trickPoints}) i zatwierdza meldunek +${confirmedMeldPoints}.`;
+
+    } else {
+
+        game.message =
+            `${game.players[winnerIndex].name} bierze sztycha (+${trickPoints}).`;
+    }
 }
 
 
@@ -787,11 +992,14 @@ function finishTrick(game) {
    PUNKTY SZTYCHA
 ========================= */
 
-function calculateTrickPoints(trick) {
+function calculateTrickPoints(
+    trick
+) {
 
     return trick.reduce(
         (sum, play) =>
-            sum + (
+            sum +
+            (
                 CARD_VALUES[
                     play.card.rank
                 ] || 0
@@ -817,18 +1025,14 @@ function check66(
     }
 
 
-    /*
-       Rozdanie zakończone.
-    */
-
     game.handFinished = true;
 
     game.winner = team;
 
 
     /*
-       Punkty z tego rozdania
-       przechodzą do punktów ogólnych.
+       Punkty z rozdania przechodzą
+       do punktów ogólnych.
     */
 
     game.overallScores[team] +=
@@ -836,9 +1040,7 @@ function check66(
 
 
     /*
-       Drużyna dostaje jedną
-       "całą punktację" za wygrane
-       rozdanie.
+       Jedno wygrane rozdanie.
     */
 
     game.gameWins[team]++;
@@ -860,55 +1062,6 @@ function check66(
 
 
 /* =========================
-   NAZWA DRUŻYNY
-========================= */
-
-function getTeamName(
-    game,
-    team
-) {
-
-    const players =
-        game.players.filter(
-            (player, index) =>
-                getPlayerTeam(
-                    game,
-                    index
-                ) === team
-        );
-
-
-    const names =
-        players
-            .filter(
-                player => !player.bot
-            )
-            .map(
-                player => player.name
-            );
-
-
-    if (names.length > 0) {
-        return names.join(" + ");
-    }
-
-
-    const allNames =
-        players.map(
-            player => player.name
-        );
-
-
-    if (allNames.length > 0) {
-        return allNames.join(" + ");
-    }
-
-
-    return `Drużyna ${team + 1}`;
-}
-
-
-/* =========================
    STAN GRY
 ========================= */
 
@@ -925,8 +1078,12 @@ function getGameState(game) {
         players:
             game.players.map(
                 (player, index) => ({
-                    name: player.name,
-                    bot: !!player.bot,
+                    name:
+                        player.name,
+
+                    bot:
+                        !!player.bot,
+
                     team:
                         getPlayerTeam(
                             game,
@@ -935,28 +1092,42 @@ function getGameState(game) {
                 })
             ),
 
+
         playerNames,
+
+
+        /*
+           Ręka zostanie później
+           ograniczona po stronie klienta.
+        */
 
         hands:
             game.hands,
 
+
         trump:
             game.trump,
+
 
         suitNames:
             SUIT_NAMES,
 
+
         currentPlayer:
             game.currentPlayer,
+
 
         leader:
             game.leader,
 
+
         phase:
             game.phase,
 
+
         trick:
             game.trick,
+
 
         /*
            Punkty gry.
@@ -965,12 +1136,14 @@ function getGameState(game) {
         scores:
             game.scores,
 
+
         /*
            Punkty ogólne.
         */
 
         overallScores:
             game.overallScores,
+
 
         /*
            Całe punkty.
@@ -979,20 +1152,35 @@ function getGameState(game) {
         gameWins:
             game.gameWins,
 
+
+        /*
+           Informacja pomocnicza
+           o oczekujących meldunkach.
+        */
+
+        pendingMelds:
+            game.pendingMelds,
+
+
         tricksWon:
             game.tricksWon,
+
 
         handFinished:
             game.handFinished,
 
+
         winner:
             game.winner,
+
 
         lastTrickWinner:
             game.lastTrickWinner,
 
+
         message:
             game.message,
+
 
         teamNames: [
             getTeamName(game, 0),
@@ -1003,6 +1191,7 @@ function getGameState(game) {
 
 
 module.exports = {
+
     SUITS,
     SUIT_NAMES,
     RANKS,
