@@ -1,3 +1,4 @@
+```js
 const socket = io();
 
 let mySocketId = null;
@@ -83,186 +84,120 @@ HELPERS
 ========================= */
 
 function showScreen(screen) {
+    startScreen.classList.add("hidden");
+    lobbyScreen.classList.add("hidden");
+    gameScreen.classList.add("hidden");
 
-```
-startScreen.classList.add("hidden");
-lobbyScreen.classList.add("hidden");
-gameScreen.classList.add("hidden");
-
-screen.classList.remove("hidden");
-```
-
+    screen.classList.remove("hidden");
 }
 
 function escapeHtml(value) {
-
-```
-return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-```
-
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 function cardSymbol(card) {
+    if (!card) {
+        return "";
+    }
 
-```
-if (!card) {
-    return "";
-}
-
-return `${card.rank}${card.suit}`;
-```
-
+    return `${card.rank}${card.suit}`;
 }
 
 function cardClass(card) {
+    if (!card) {
+        return "";
+    }
 
-```
-if (!card) {
-    return "";
-}
+    if (card.suit === "♥" || card.suit === "♦") {
+        return "red";
+    }
 
-if (
-    card.suit === "♥" ||
-    card.suit === "♦"
-) {
-    return "red";
-}
-
-return "black";
-```
-
+    return "black";
 }
 
 function cardValue(card) {
+    if (!card) {
+        return 0;
+    }
 
-```
-if (!card) {
-    return 0;
-}
+    const values = {
+        A: 11,
+        10: 10,
+        K: 4,
+        Q: 3,
+        J: 2,
+        9: 0
+    };
 
-const values = {
-    "A": 11,
-    "10": 10,
-    "K": 4,
-    "Q": 3,
-    "J": 2,
-    "9": 0
-};
-
-return values[card.rank] ?? 0;
-```
-
+    return values[card.rank] ?? 0;
 }
 
 function cardRankPower(rank) {
+    const powers = {
+        A: 6,
+        10: 5,
+        K: 4,
+        Q: 3,
+        J: 2,
+        9: 1
+    };
 
-```
-const powers = {
-    "A": 6,
-    "10": 5,
-    "K": 4,
-    "Q": 3,
-    "J": 2,
-    "9": 1
-};
-
-return powers[rank] ?? 0;
-```
-
+    return powers[rank] ?? 0;
 }
 
 /* =========================
 CURRENT PLAYER CHECK
 ========================= */
 
-/*
-
-* Backend może podawać aktualnego gracza
-* jako currentPlayer albo chooser.
-*
-* Ta funkcja obsługuje oba warianty.
-  */
-
 function isMyTurn(state) {
+    if (!state) {
+        return false;
+    }
 
-```
-if (!state) {
+    const myIndex =
+        Number.isInteger(state.myPlayerIndex)
+            ? state.myPlayerIndex
+            : null;
+
+    if (myIndex === null) {
+        return false;
+    }
+
+    if (Number.isInteger(state.currentPlayer)) {
+        return state.currentPlayer === myIndex;
+    }
+
+    if (Number.isInteger(state.chooser)) {
+        return state.chooser === myIndex;
+    }
+
     return false;
 }
-
-const myIndex =
-    Number.isInteger(state.myPlayerIndex)
-        ? state.myPlayerIndex
-        : null;
-
-if (myIndex === null) {
-    return false;
-}
-
-
-if (
-    Number.isInteger(state.currentPlayer)
-) {
-
-    return (
-        state.currentPlayer === myIndex
-    );
-}
-
-
-if (
-    Number.isInteger(state.chooser)
-) {
-
-    return (
-        state.chooser === myIndex
-    );
-}
-
-
-return false;
-```
-
-}
-
-/*
-
-* Czy ja jestem obierającym?
-  */
 
 function amIChooser(state) {
+    if (!state) {
+        return false;
+    }
 
-```
-if (!state) {
-    return false;
-}
+    const myIndex =
+        Number.isInteger(state.myPlayerIndex)
+            ? state.myPlayerIndex
+            : null;
 
-const myIndex =
-    Number.isInteger(state.myPlayerIndex)
-        ? state.myPlayerIndex
-        : null;
+    if (myIndex === null) {
+        return false;
+    }
 
-if (myIndex === null) {
-    return false;
-}
+    if (Number.isInteger(state.chooser)) {
+        return state.chooser === myIndex;
+    }
 
-if (
-    Number.isInteger(state.chooser)
-) {
-
-    return (
-        state.chooser === myIndex
-    );
-}
-
-return isMyTurn(state);
-```
-
+    return isMyTurn(state);
 }
 
 /* =========================
@@ -270,198 +205,120 @@ CARD LEGALITY
 ========================= */
 
 function getLeadSuit(state) {
+    if (
+        !state ||
+        !Array.isArray(state.playedCards) ||
+        state.playedCards.length === 0
+    ) {
+        return null;
+    }
 
-```
-if (
-    !state ||
-    !Array.isArray(state.playedCards) ||
-    state.playedCards.length === 0
-) {
-    return null;
-}
-
-return (
-    state.playedCards[0]?.card?.suit ||
-    null
-);
-```
-
+    return state.playedCards[0]?.card?.suit || null;
 }
 
 function getCurrentWinningCard(state) {
+    if (
+        !state ||
+        !Array.isArray(state.playedCards) ||
+        state.playedCards.length === 0
+    ) {
+        return null;
+    }
 
-```
-if (
-    !state ||
-    !Array.isArray(state.playedCards) ||
-    state.playedCards.length === 0
-) {
-    return null;
+    let winner = state.playedCards[0];
+
+    for (let i = 1; i < state.playedCards.length; i++) {
+        const candidate = state.playedCards[i];
+
+        if (
+            cardBeats(
+                candidate.card,
+                winner.card,
+                getLeadSuit(state),
+                state.trump
+            )
+        ) {
+            winner = candidate;
+        }
+    }
+
+    return winner?.card || null;
 }
 
-let winner =
-    state.playedCards[0];
+function cardBeats(candidate, current, leadSuit, trump) {
+    if (!candidate || !current) {
+        return false;
+    }
 
-for (
-    let i = 1;
-    i < state.playedCards.length;
-    i++
-) {
-
-    const candidate =
-        state.playedCards[i];
+    const candidateSuit = candidate.suit;
+    const currentSuit = current.suit;
 
     if (
-        cardBeats(
-            candidate.card,
-            winner.card,
-            getLeadSuit(state),
-            state.trump
-        )
+        trump &&
+        candidateSuit === trump &&
+        currentSuit !== trump
     ) {
-
-        winner = candidate;
+        return true;
     }
-}
 
-return winner?.card || null;
-```
+    if (
+        trump &&
+        candidateSuit !== trump &&
+        currentSuit === trump
+    ) {
+        return false;
+    }
 
-}
+    if (candidateSuit !== currentSuit) {
+        return false;
+    }
 
-function cardBeats(
-candidate,
-current,
-leadSuit,
-trump
-) {
-
-```
-if (!candidate || !current) {
-    return false;
-}
-
-const candidateSuit =
-    candidate.suit;
-
-const currentSuit =
-    current.suit;
-
-
-if (
-    trump &&
-    candidateSuit === trump &&
-    currentSuit !== trump
-) {
-    return true;
-}
-
-
-if (
-    trump &&
-    candidateSuit !== trump &&
-    currentSuit === trump
-) {
-    return false;
-}
-
-
-if (
-    candidateSuit !== currentSuit
-) {
-    return false;
-}
-
-
-return (
-    cardRankPower(candidate.rank) >
-    cardRankPower(current.rank)
-);
-```
-
+    return (
+        cardRankPower(candidate.rank) >
+        cardRankPower(current.rank)
+    );
 }
 
 function isLegalClientPlay(state, card) {
-
-```
-if (!state || !card) {
-    return false;
-}
-
-
-const trump =
-    state.mode === "normal"
-        ? state.trump
-        : null;
-
-
-const leadSuit =
-    getLeadSuit(state);
-
-
-/*
- * Pierwsza karta lewki.
- */
-if (!leadSuit) {
-    return true;
-}
-
-
-const hand =
-    Array.isArray(state.hand)
-        ? state.hand
-        : [];
-
-
-const hasLeadSuit =
-    hand.some(
-        c =>
-            c.suit === leadSuit
-    );
-
-
-/*
- * Masz kolor wyjścia.
- * Musisz dołożyć do koloru.
- */
-if (hasLeadSuit) {
-
-    return (
-        card.suit === leadSuit
-    );
-}
-
-
-/*
- * Nie masz koloru wyjścia.
- * W normalnej grze musisz dać atut,
- * jeżeli go posiadasz.
- */
-if (trump) {
-
-    const hasTrump =
-        hand.some(
-            c =>
-                c.suit === trump
-        );
-
-
-    if (hasTrump) {
-
-        return (
-            card.suit === trump
-        );
+    if (!state || !card) {
+        return false;
     }
-}
 
+    const trump =
+        state.mode === "normal"
+            ? state.trump
+            : null;
 
-/*
- * Nie masz ani koloru,
- * ani atutu.
- */
-return true;
-```
+    const leadSuit = getLeadSuit(state);
 
+    if (!leadSuit) {
+        return true;
+    }
+
+    const hand =
+        Array.isArray(state.hand)
+            ? state.hand
+            : [];
+
+    const hasLeadSuit = hand.some(
+        c => c.suit === leadSuit
+    );
+
+    if (hasLeadSuit) {
+        return card.suit === leadSuit;
+    }
+
+    if (trump) {
+        const hasTrump = hand.some(
+            c => c.suit === trump
+        );
+
+        if (hasTrump) {
+            return card.suit === trump;
+        }
+    }
+
+    return true;
 }
 
 /* =========================
@@ -469,93 +326,59 @@ LOBBY
 ========================= */
 
 function renderLobby(state) {
+    if (!state) {
+        return;
+    }
 
-```
-if (!state) {
-    return;
-}
+    lobbyRoom.textContent =
+        `Pokój: ${state.roomName || ""}`;
 
+    lobbyStatus.textContent =
+        state.statusMessage || "";
 
-lobbyRoom.textContent =
-    `Pokój: ${state.roomName || ""}`;
+    lobbyPlayers.innerHTML = "";
 
-
-lobbyStatus.textContent =
-    state.statusMessage || "";
-
-
-lobbyPlayers.innerHTML = "";
-
-
-if (
-    Array.isArray(state.players)
-) {
-
-    state.players.forEach(
-        player => {
-
+    if (Array.isArray(state.players)) {
+        state.players.forEach(player => {
             const element =
                 document.createElement("div");
 
             element.className =
                 "lobbyPlayer";
 
-
             let teamText =
                 "Bez drużyny";
 
-
-            if (
-                player.team === 0
-            ) {
-
+            if (player.team === 0) {
                 teamText =
                     "Drużyna 1";
             }
 
-
-            if (
-                player.team === 1
-            ) {
-
+            if (player.team === 1) {
                 teamText =
                     "Drużyna 2";
             }
-
 
             const botText =
                 player.isBot
                     ? " 🤖"
                     : "";
 
-
             element.innerHTML =
                 `<strong>${escapeHtml(player.name)}</strong>
                  — ${teamText}${botText}`;
 
+            lobbyPlayers.appendChild(element);
+        });
+    }
 
-            lobbyPlayers.appendChild(
-                element
-            );
-        }
-    );
-}
-
-
-if (
-    selectedTeam === null
-) {
-
-    selectedTeamDisplay.textContent =
-        "Nie wybrano drużyny.";
-
-} else {
-
-    selectedTeamDisplay.textContent =
-        `Wybrano: Drużyna ${selectedTeam + 1}`;
-}
-```
-
+    if (selectedTeam === null) {
+        selectedTeamDisplay.textContent =
+            "Nie wybrano drużyny.";
+    } else {
+        selectedTeamDisplay.textContent =
+            `Wybrano: Drużyna ${selectedTeam + 1}`;
+    }
 }
 
 /* =========================
@@ -563,21 +386,17 @@ GAME
 ========================= */
 
 function renderGame(state) {
+    if (!state) {
+        return;
+    }
 
-```
-if (!state) {
-    return;
-}
-
-renderScores(state);
-renderPlayers(state);
-renderTrump(state);
-renderPlayedCards(state);
-renderHand(state);
-renderGameInfo(state);
-renderActions(state);
-```
-
+    renderScores(state);
+    renderPlayers(state);
+    renderTrump(state);
+    renderPlayedCards(state);
+    renderHand(state);
+    renderGameInfo(state);
+    renderActions(state);
 }
 
 /* =========================
@@ -585,37 +404,31 @@ SCORES
 ========================= */
 
 function renderScores(state) {
+    scoreTeam1.textContent =
+        state.scores?.[0] ?? 0;
 
-```
-scoreTeam1.textContent =
-    state.scores?.[0] ?? 0;
+    scoreTeam2.textContent =
+        state.scores?.[1] ?? 0;
 
-scoreTeam2.textContent =
-    state.scores?.[1] ?? 0;
+    overallTeam1.textContent =
+        state.overallScores?.[0] ?? 0;
 
-overallTeam1.textContent =
-    state.overallScores?.[0] ?? 0;
+    overallTeam2.textContent =
+        state.overallScores?.[1] ?? 0;
 
-overallTeam2.textContent =
-    state.overallScores?.[1] ?? 0;
+    gamesTeam1.textContent =
+        state.gameWins?.[0] ?? 0;
 
-gamesTeam1.textContent =
-    state.gameWins?.[0] ?? 0;
+    gamesTeam2.textContent =
+        state.gameWins?.[1] ?? 0;
 
-gamesTeam2.textContent =
-    state.gameWins?.[1] ?? 0;
+    team1Name.textContent =
+        state.teamNames?.[0] ||
+        "Drużyna 1";
 
-
-team1Name.textContent =
-    state.teamNames?.[0] ||
-    "Drużyna 1";
-
-
-team2Name.textContent =
-    state.teamNames?.[1] ||
-    "Drużyna 2";
-```
-
+    team2Name.textContent =
+        state.teamNames?.[1] ||
+        "Drużyna 2";
 }
 
 /* =========================
@@ -623,57 +436,45 @@ PLAYERS
 ========================= */
 
 function renderPlayers(state) {
+    const players =
+        state.players || [];
 
-```
-const players =
-    state.players || [];
+    const myIndex =
+        Number.isInteger(state.myPlayerIndex)
+            ? state.myPlayerIndex
+            : 0;
 
+    function nameAt(offset) {
+        if (!players.length) {
+            return "—";
+        }
 
-const myIndex =
-    Number.isInteger(
-        state.myPlayerIndex
-    )
-        ? state.myPlayerIndex
-        : 0;
+        const index =
+            (
+                myIndex +
+                offset +
+                players.length
+            ) %
+            players.length;
 
-
-function nameAt(offset) {
-
-    if (!players.length) {
-        return "—";
+        return (
+            players[index]?.name ||
+            "—"
+        );
     }
 
-    const index =
-        (
-            myIndex +
-            offset +
-            players.length
-        ) %
-        players.length;
+    topPlayer.textContent =
+        nameAt(2);
 
+    leftPlayer.textContent =
+        nameAt(1);
 
-    return (
-        players[index]?.name ||
-        "—"
-    );
-}
+    rightPlayer.textContent =
+        nameAt(3);
 
-
-topPlayer.textContent =
-    nameAt(2);
-
-leftPlayer.textContent =
-    nameAt(1);
-
-rightPlayer.textContent =
-    nameAt(3);
-
-
-currentPlayerName.textContent =
-    players[myIndex]?.name ||
-    "Ty";
-```
-
+    currentPlayerName.textContent =
+        players[myIndex]?.name ||
+        "Ty";
 }
 
 /* =========================
@@ -681,23 +482,15 @@ TRUMP
 ========================= */
 
 function renderTrump(state) {
+    if (state.mode !== "normal") {
+        trumpDisplay.textContent =
+            "Brak";
 
-```
-if (
-    state.mode !== "normal"
-) {
+        return;
+    }
 
     trumpDisplay.textContent =
-        "Brak";
-
-    return;
-}
-
-
-trumpDisplay.textContent =
-    state.trump || "—";
-```
-
+        state.trump || "—";
 }
 
 /* =========================
@@ -705,36 +498,26 @@ PLAYED CARDS
 ========================= */
 
 function renderPlayedCards(state) {
+    playedCards.innerHTML = "";
 
-```
-playedCards.innerHTML = "";
+    const cards =
+        Array.isArray(state.playedCards)
+            ? state.playedCards
+            : [];
 
-
-const cards =
-    Array.isArray(state.playedCards)
-        ? state.playedCards
-        : [];
-
-
-cards.forEach(
-    played => {
-
+    cards.forEach(played => {
         const card =
             played.card;
-
 
         if (!card) {
             return;
         }
 
-
         const element =
             document.createElement("div");
 
-
         element.className =
             `playedCard ${cardClass(card)}`;
-
 
         element.innerHTML =
             `<span class="playedBy">
@@ -750,14 +533,8 @@ cards.forEach(
                 )}
             </span>`;
 
-
-        playedCards.appendChild(
-            element
-        );
-    }
-);
-```
-
+        playedCards.appendChild(element);
+    });
 }
 
 /* =========================
@@ -765,34 +542,25 @@ HAND
 ========================= */
 
 function renderHand(state) {
+    myCards.innerHTML = "";
 
-```
-myCards.innerHTML = "";
+    const hand =
+        Array.isArray(state.hand)
+            ? state.hand
+            : [];
 
-
-const hand =
-    Array.isArray(state.hand)
-        ? state.hand
-        : [];
-
-
-hand.forEach(
-    card => {
-
+    hand.forEach(card => {
         const legal =
             isLegalClientPlay(
                 state,
                 card
             );
 
-
         const button =
             document.createElement("button");
 
-
         button.type =
             "button";
-
 
         button.className =
             `card ${cardClass(card)} ${
@@ -801,7 +569,6 @@ hand.forEach(
                     : "disabled"
             }`;
 
-
         button.innerHTML =
             `<span class="cardSymbol">
                 ${escapeHtml(
@@ -809,30 +576,20 @@ hand.forEach(
                 )}
             </span>`;
 
-
         button.disabled =
             !legal;
 
-
         if (legal) {
-
             button.addEventListener(
                 "click",
                 () => {
-
                     playCard(card);
                 }
             );
         }
 
-
-        myCards.appendChild(
-            button
-        );
-    }
-);
-```
-
+        myCards.appendChild(button);
+    });
 }
 
 /* =========================
@@ -840,36 +597,21 @@ GAME INFO
 ========================= */
 
 function renderGameInfo(state) {
+    if (state.currentPlayerName) {
+        currentPlayerInfo.textContent =
+            `Ruch: ${state.currentPlayerName}`;
+    } else {
+        currentPlayerInfo.textContent =
+            "";
+    }
 
-```
-if (
-    state.currentPlayerName
-) {
-
-    currentPlayerInfo.textContent =
-        `Ruch: ${state.currentPlayerName}`;
-
-} else {
-
-    currentPlayerInfo.textContent =
-        "";
-}
-
-
-if (
-    state.message
-) {
-
-    gameMessage.textContent =
-        state.message;
-
-} else {
-
-    gameMessage.textContent =
-        "";
-}
-```
-
+    if (state.message) {
+        gameMessage.textContent =
+            state.message;
+    } else {
+        gameMessage.textContent =
+            "";
+    }
 }
 
 /* =========================
@@ -877,112 +619,49 @@ ACTIONS
 ========================= */
 
 function renderActions(state) {
-
-```
-/*
- * Czyścimy poprzedni stan.
- */
-gameActions.classList.add("hidden");
-choiceActions.classList.add("hidden");
-lufaActions.classList.add("hidden");
-
-
-/*
- * Jeżeli kończymy poprzedni timer,
- * zatrzymujemy go.
- */
-if (
-    state.phase !== "lufa" &&
-    lufaInterval
-) {
-
-    clearInterval(lufaInterval);
-    lufaInterval = null;
-}
-
-
-/*
- * =========================
- * WYBÓR PO 3 KARTACH
- * =========================
- *
- * Tutaj najważniejsza zmiana:
- * sprawdzamy obierającego przez
- * chooser, a nie tylko currentPlayer.
- */
-
-const choosingPhase =
-    (
-        state.dealStage === 1 &&
-        state.phase === "trump"
-    );
-
-
-if (choosingPhase) {
+    gameActions.classList.add("hidden");
+    choiceActions.classList.add("hidden");
+    lufaActions.classList.add("hidden");
 
     if (
-        amIChooser(state)
+        state.phase !== "lufa" &&
+        lufaInterval
     ) {
+        clearInterval(lufaInterval);
+        lufaInterval = null;
+    }
 
-        gameActions.classList.remove(
-            "hidden"
-        );
+    const choosingPhase =
+        state.dealStage === 1 &&
+        state.phase === "trump";
 
-        choiceActions.classList.remove(
-            "hidden"
-        );
+    if (choosingPhase) {
+        if (amIChooser(state)) {
+            gameActions.classList.remove(
+                "hidden"
+            );
 
-        /*
-         * Wyraźnie pokazujemy wszystkie
-         * sześć możliwości.
-         */
-        heartButton.hidden = false;
-        diamondButton.hidden = false;
-        clubButton.hidden = false;
-        spadeButton.hidden = false;
-        betterButton.hidden = false;
-        worseButton.hidden = false;
+            choiceActions.classList.remove(
+                "hidden"
+            );
+
+            heartButton.hidden = false;
+            diamondButton.hidden = false;
+            clubButton.hidden = false;
+            spadeButton.hidden = false;
+            betterButton.hidden = false;
+            worseButton.hidden = false;
+
+            return;
+        }
 
         return;
     }
 
-
-    return;
-}
-
-
-/*
- * =========================
- * LUFA
- * =========================
- */
-
-if (
-    state.phase === "lufa"
-) {
-
-    /*
-     * Lufę mogą zgłaszać pozostali,
-     * więc nie wymagamy tutaj
-     * currentPlayer == myPlayerIndex.
-     */
-
-    renderLufaActions(state);
-
-    return;
-}
-
-
-/*
- * =========================
- * NORMALNY RUCH
- * =========================
- *
- * W normalnej grze nie ma dodatkowych
- * przycisków.
- */
-```
-
+    if (state.phase === "lufa") {
+        renderLufaActions(state);
+        return;
+    }
 }
 
 /* =========================
@@ -990,405 +669,43 @@ LUFA ACTIONS
 ========================= */
 
 function renderLufaActions(state) {
-
-```
-gameActions.classList.remove(
-    "hidden"
-);
-
-lufaActions.classList.remove(
-    "hidden"
-);
-
-
-const until =
-    Number(
-        state.lufaUntil || 0
+    gameActions.classList.remove(
+        "hidden"
     );
 
+    lufaActions.classList.remove(
+        "hidden"
+    );
 
-const updateTimer = () => {
-
-    const remaining =
-        Math.max(
-            0,
-            until - Date.now()
+    const until =
+        Number(
+            state.lufaUntil || 0
         );
 
+    const updateTimer = () => {
+        const remaining =
+            Math.max(
+                0,
+                until - Date.now()
+            );
 
-    const seconds =
-        Math.ceil(
-            remaining / 1000
-        );
+        const seconds =
+            Math.ceil(
+                remaining / 1000
+            );
 
-
-    if (seconds > 0) {
-
-        lufaTimer.textContent =
-            `Lufa — ${seconds}s`;
-
-    } else {
-
-        lufaTimer.textContent =
-            "Lufa — koniec czasu";
-    }
-};
-
-
-updateTimer();
-
-
-if (lufaInterval) {
-
-    clearInterval(
-        lufaInterval
-    );
-
-    lufaInterval = null;
-}
-
-
-lufaInterval =
-    setInterval(
-        () => {
-
-            if (
-                !latestState ||
-                latestState.phase !== "lufa"
-            ) {
-
-                clearInterval(
-                    lufaInterval
-                );
-
-                lufaInterval = null;
-
-                return;
-            }
-
-
-            updateTimer();
-
-        },
-        200
-    );
-```
-
-}
-
-/* =========================
-PLAY CARD
-========================= */
-
-function playCard(card) {
-
-```
-if (!latestState) {
-    return;
-}
-
-
-if (
-    !isMyTurn(latestState)
-) {
-    return;
-}
-
-
-if (
-    !isLegalClientPlay(
-        latestState,
-        card
-    )
-) {
-    return;
-}
-
-
-socket.emit(
-    "playCard",
-    {
-        card: {
-            rank: card.rank,
-            suit: card.suit
+        if (seconds > 0) {
+            lufaTimer.textContent =
+                `Lufa — ${seconds}s`;
+        } else {
+            lufaTimer.textContent =
+                "Lufa — koniec czasu";
         }
-    }
-);
-```
+    };
 
-}
-
-/* =========================
-CHOOSE TEAM
-========================= */
-
-function chooseTeam(team) {
-
-```
-if (
-    team !== 0 &&
-    team !== 1
-) {
-    return;
-}
-
-
-selectedTeam =
-    team;
-
-
-socket.emit(
-    "chooseTeam",
-    {
-        team
-    }
-);
-
-
-selectedTeamDisplay.textContent =
-    `Wybrano: Drużyna ${team + 1}`;
-```
-
-}
-
-/* =========================
-CHOOSE TRUMP
-========================= */
-
-function chooseTrump(trump) {
-
-```
-if (!latestState) {
-    return;
-}
-
-
-if (
-    !amIChooser(latestState)
-) {
-    return;
-}
-
-
-if (
-    latestState.dealStage !== 1 ||
-    latestState.phase !== "trump"
-) {
-    return;
-}
-
-
-socket.emit(
-    "chooseTrump",
-    {
-        trump
-    }
-);
-```
-
-}
-
-/* =========================
-SPECIAL MODE
-========================= */
-
-function chooseSpecialMode(mode) {
-
-```
-if (!latestState) {
-    return;
-}
-
-
-if (
-    !amIChooser(latestState)
-) {
-    return;
-}
-
-
-if (
-    latestState.dealStage !== 1 ||
-    latestState.phase !== "trump"
-) {
-    return;
-}
-
-
-if (
-    mode !== "lepsza" &&
-    mode !== "gorsza"
-) {
-    return;
-}
-
-
-socket.emit(
-    "chooseSpecialMode",
-    {
-        mode
-    }
-);
-```
-
-}
-
-/* =========================
-LUFA
-========================= */
-
-function callLufa() {
-
-```
-if (!latestState) {
-    return;
-}
-
-
-if (
-    latestState.phase !== "lufa"
-) {
-    return;
-}
-
-
-socket.emit(
-    "callLufa"
-);
-```
-
-}
-
-function callBackLufa() {
-
-```
-if (!latestState) {
-    return;
-}
-
-
-if (
-    latestState.phase !== "lufa"
-) {
-    return;
-}
-
-
-socket.emit(
-    "callBackLufa"
-);
-```
-
-}
-
-/* =========================
-BUTTON EVENTS
-========================= */
-
-team1Button.addEventListener(
-"click",
-() => {
-
-```
-    chooseTeam(0);
-}
-```
-
-);
-
-team2Button.addEventListener(
-"click",
-() => {
-
-```
-    chooseTeam(1);
-}
-```
-
-);
-
-joinButton.addEventListener(
-"click",
-() => {
-
-```
-    const nickname =
-        nicknameInput.value.trim();
-
-    const room =
-        roomInput.value.trim();
-
-
-    if (!nickname) {
-
-        startMessage.textContent =
-            "Podaj nick.";
-
-        nicknameInput.focus();
-
-        return;
-    }
-
-
-    if (!room) {
-
-        startMessage.textContent =
-            "Podaj nazwę pokoju.";
-
-        roomInput.focus();
-
-        return;
-    }
-
-
-    startMessage.textContent =
-        "";
-
-
-    socket.emit(
-        "joinRoom",
-        {
-            nickname,
-            room
-        }
-    );
-}
-```
-
-);
-
-botsButton.addEventListener(
-"click",
-() => {
-
-```
-    socket.emit(
-        "startGameWithBots"
-    );
-}
-```
-
-);
-
-leaveButton.addEventListener(
-"click",
-() => {
-
-```
-    socket.emit(
-        "leaveRoom"
-    );
-
-
-    selectedTeam =
-        null;
-
-    latestState =
-        null;
-
+    updateTimer();
 
     if (lufaInterval) {
-
         clearInterval(
             lufaInterval
         );
@@ -1396,13 +713,274 @@ leaveButton.addEventListener(
         lufaInterval = null;
     }
 
+    lufaInterval =
+        setInterval(
+            () => {
+                if (
+                    !latestState ||
+                    latestState.phase !== "lufa"
+                ) {
+                    clearInterval(
+                        lufaInterval
+                    );
 
-    showScreen(
-        startScreen
+                    lufaInterval = null;
+
+                    return;
+                }
+
+                updateTimer();
+            },
+            200
+        );
+}
+
+/* =========================
+PLAY CARD
+========================= */
+
+function playCard(card) {
+    if (!latestState) {
+        return;
+    }
+
+    if (!isMyTurn(latestState)) {
+        return;
+    }
+
+    if (
+        !isLegalClientPlay(
+            latestState,
+            card
+        )
+    ) {
+        return;
+    }
+
+    socket.emit(
+        "playCard",
+        {
+            card: {
+                rank: card.rank,
+                suit: card.suit
+            }
+        }
     );
 }
-```
 
+/* =========================
+CHOOSE TEAM
+========================= */
+
+function chooseTeam(team) {
+    if (
+        team !== 0 &&
+        team !== 1
+    ) {
+        return;
+    }
+
+    selectedTeam =
+        team;
+
+    socket.emit(
+        "chooseTeam",
+        {
+            team
+        }
+    );
+
+    selectedTeamDisplay.textContent =
+        `Wybrano: Drużyna ${team + 1}`;
+}
+
+/* =========================
+CHOOSE TRUMP
+========================= */
+
+function chooseTrump(trump) {
+    if (!latestState) {
+        return;
+    }
+
+    if (!amIChooser(latestState)) {
+        return;
+    }
+
+    if (
+        latestState.dealStage !== 1 ||
+        latestState.phase !== "trump"
+    ) {
+        return;
+    }
+
+    socket.emit(
+        "chooseTrump",
+        {
+            trump
+        }
+    );
+}
+
+/* =========================
+SPECIAL MODE
+========================= */
+
+function chooseSpecialMode(mode) {
+    if (!latestState) {
+        return;
+    }
+
+    if (!amIChooser(latestState)) {
+        return;
+    }
+
+    if (
+        latestState.dealStage !== 1 ||
+        latestState.phase !== "trump"
+    ) {
+        return;
+    }
+
+    if (
+        mode !== "lepsza" &&
+        mode !== "gorsza"
+    ) {
+        return;
+    }
+
+    socket.emit(
+        "chooseSpecialMode",
+        {
+            mode
+        }
+    );
+}
+
+/* =========================
+LUFA
+========================= */
+
+function callLufa() {
+    if (!latestState) {
+        return;
+    }
+
+    if (latestState.phase !== "lufa") {
+        return;
+    }
+
+    socket.emit(
+        "callLufa"
+    );
+}
+
+function callBackLufa() {
+    if (!latestState) {
+        return;
+    }
+
+    if (latestState.phase !== "lufa") {
+        return;
+    }
+
+    socket.emit(
+        "callBackLufa"
+    );
+}
+
+/* =========================
+BUTTON EVENTS
+========================= */
+
+team1Button.addEventListener(
+    "click",
+    () => {
+        chooseTeam(0);
+    }
+);
+
+team2Button.addEventListener(
+    "click",
+    () => {
+        chooseTeam(1);
+    }
+);
+
+joinButton.addEventListener(
+    "click",
+    () => {
+        const nickname =
+            nicknameInput.value.trim();
+
+        const room =
+            roomInput.value.trim();
+
+        if (!nickname) {
+            startMessage.textContent =
+                "Podaj nick.";
+
+            nicknameInput.focus();
+
+            return;
+        }
+
+        if (!room) {
+            startMessage.textContent =
+                "Podaj nazwę pokoju.";
+
+            roomInput.focus();
+
+            return;
+        }
+
+        startMessage.textContent =
+            "";
+
+        socket.emit(
+            "joinRoom",
+            {
+                nickname,
+                room
+            }
+        );
+    }
+);
+
+botsButton.addEventListener(
+    "click",
+    () => {
+        socket.emit(
+            "startGameWithBots"
+        );
+    }
+);
+
+leaveButton.addEventListener(
+    "click",
+    () => {
+        socket.emit(
+            "leaveRoom"
+        );
+
+        selectedTeam =
+            null;
+
+        latestState =
+            null;
+
+        if (lufaInterval) {
+            clearInterval(
+                lufaInterval
+            );
+
+            lufaInterval = null;
+        }
+
+        showScreen(
+            startScreen
+        );
+    }
 );
 
 /* =========================
@@ -1410,47 +988,31 @@ TRUMP BUTTONS
 ========================= */
 
 heartButton.addEventListener(
-"click",
-() => {
-
-```
-    chooseTrump("♥");
-}
-```
-
+    "click",
+    () => {
+        chooseTrump("♥");
+    }
 );
 
 diamondButton.addEventListener(
-"click",
-() => {
-
-```
-    chooseTrump("♦");
-}
-```
-
+    "click",
+    () => {
+        chooseTrump("♦");
+    }
 );
 
 clubButton.addEventListener(
-"click",
-() => {
-
-```
-    chooseTrump("♣");
-}
-```
-
+    "click",
+    () => {
+        chooseTrump("♣");
+    }
 );
 
 spadeButton.addEventListener(
-"click",
-() => {
-
-```
-    chooseTrump("♠");
-}
-```
-
+    "click",
+    () => {
+        chooseTrump("♠");
+    }
 );
 
 /* =========================
@@ -1458,29 +1020,21 @@ SPECIAL BUTTONS
 ========================= */
 
 betterButton.addEventListener(
-"click",
-() => {
-
-```
-    chooseSpecialMode(
-        "lepsza"
-    );
-}
-```
-
+    "click",
+    () => {
+        chooseSpecialMode(
+            "lepsza"
+        );
+    }
 );
 
 worseButton.addEventListener(
-"click",
-() => {
-
-```
-    chooseSpecialMode(
-        "gorsza"
-    );
-}
-```
-
+    "click",
+    () => {
+        chooseSpecialMode(
+            "gorsza"
+        );
+    }
 );
 
 /* =========================
@@ -1488,25 +1042,17 @@ LUFA BUTTONS
 ========================= */
 
 lufaButton.addEventListener(
-"click",
-() => {
-
-```
-    callLufa();
-}
-```
-
+    "click",
+    () => {
+        callLufa();
+    }
 );
 
 backLufaButton.addEventListener(
-"click",
-() => {
-
-```
-    callBackLufa();
-}
-```
-
+    "click",
+    () => {
+        callBackLufa();
+    }
 );
 
 /* =========================
@@ -1514,35 +1060,21 @@ ENTER TO JOIN
 ========================= */
 
 nicknameInput.addEventListener(
-"keydown",
-event => {
-
-```
-    if (
-        event.key === "Enter"
-    ) {
-
-        roomInput.focus();
+    "keydown",
+    event => {
+        if (event.key === "Enter") {
+            roomInput.focus();
+        }
     }
-}
-```
-
 );
 
 roomInput.addEventListener(
-"keydown",
-event => {
-
-```
-    if (
-        event.key === "Enter"
-    ) {
-
-        joinButton.click();
+    "keydown",
+    event => {
+        if (event.key === "Enter") {
+            joinButton.click();
+        }
     }
-}
-```
-
 );
 
 /* =========================
@@ -1550,125 +1082,90 @@ SOCKET
 ========================= */
 
 socket.on(
-"connect",
-() => {
-
-```
-    mySocketId =
-        socket.id;
-}
-```
-
+    "connect",
+    () => {
+        mySocketId =
+            socket.id;
+    }
 );
 
 socket.on(
-"errorMessage",
-message => {
-
-```
-    startMessage.textContent =
-        message ||
-        "Wystąpił błąd.";
-
-
-    if (
-        !gameScreen.classList.contains(
-            "hidden"
-        )
-    ) {
-
-        gameMessage.textContent =
+    "errorMessage",
+    message => {
+        startMessage.textContent =
             message ||
             "Wystąpił błąd.";
-    }
-}
-```
 
+        if (
+            !gameScreen.classList.contains(
+                "hidden"
+            )
+        ) {
+            gameMessage.textContent =
+                message ||
+                "Wystąpił błąd.";
+        }
+    }
 );
 
 socket.on(
-"message",
-message => {
+    "message",
+    message => {
+        if (latestState) {
+            latestState.message =
+                message;
 
-```
-    if (
-        latestState
-    ) {
+            renderGameInfo(
+                latestState
+            );
+        }
+    }
+);
 
-        latestState.message =
-            message;
+socket.on(
+    "lobbyState",
+    state => {
+        latestState =
+            null;
 
-        renderGameInfo(
-            latestState
+        showScreen(
+            lobbyScreen
+        );
+
+        renderLobby(
+            state
         );
     }
-}
-```
-
 );
 
 socket.on(
-"lobbyState",
-state => {
+    "gameState",
+    state => {
+        latestState =
+            state;
 
-```
-    latestState =
-        null;
+        showScreen(
+            gameScreen
+        );
 
-
-    showScreen(
-        lobbyScreen
-    );
-
-
-    renderLobby(
-        state
-    );
-}
-```
-
+        renderGame(
+            state
+        );
+    }
 );
 
 socket.on(
-"gameState",
-state => {
+    "gameStarted",
+    state => {
+        latestState =
+            state;
 
-```
-    latestState =
-        state;
+        showScreen(
+            gameScreen
+        );
 
-
-    showScreen(
-        gameScreen
-    );
-
-
-    renderGame(
-        state
-    );
-}
-```
-
-);
-
-socket.on(
-"gameStarted",
-state => {
-
-```
-    latestState =
-        state;
-
-
-    showScreen(
-        gameScreen
-    );
-
-
-    renderGame(
-        state
-    );
-}
-```
-
+        renderGame(
+            state
+        );
+    }
 );
