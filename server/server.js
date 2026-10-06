@@ -1,1224 +1,625 @@
-const SUITS = ["♥", "♦", "♣", "♠"];
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
 
-const SUIT_NAMES = {
-    "♥": "Czerwo",
-    "♦": "Dzwonek",
-    "♣": "Krzak",
-    "♠": "Wino"
-};
+const {
+    createGame,
+    dealInitialCards,
+    dealRemainingCards,
+    chooseTrump,
+    playCard,
+    getGameState
+} = require("./game");
 
-const RANKS = ["A", "10", "K", "Q", "J", "9"];
+const {
+    fillBots,
+    chooseBotTrump,
+    chooseBotCard
+} = require("./bot");
 
-const CARD_VALUES = {
-    A: 11,
-    "10": 10,
-    K: 4,
-    Q: 3,
-    J: 2,
-    9: 0
-};
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
-const RANK_POWER = {
-    A: 6,
-    "10": 5,
-    K: 4,
-    Q: 3,
-    J: 2,
-    9: 1
-};
+app.use(express.static("client"));
 
+const rooms = new Map();
 
-/* =========================
-   TALIA
-========================= */
-
-function createDeck() {
-
-    const deck = [];
-
-    for (const suit of SUITS) {
-
-        for (const rank of RANKS) {
-
-            deck.push({
-                suit,
-                rank,
-                value: CARD_VALUES[rank]
-            });
-        }
-    }
-
-    return deck;
+function createRoomId() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-
-function shuffle(deck) {
-
-    const result = [...deck];
-
-    for (
-        let i = result.length - 1;
-        i > 0;
-        i--
-    ) {
-
-        const j =
-            Math.floor(
-                Math.random() * (i + 1)
-            );
-
-        [
-            result[i],
-            result[j]
-        ] = [
-            result[j],
-            result[i]
-        ];
-    }
-
-    return result;
+function getRoomPlayers(room) {
+    return room.players || [];
 }
 
-
-/* =========================
-   DRUŻYNY
-========================= */
-
-function getPlayerTeam(game, playerIndex) {
-
-    const player =
-        game.players[playerIndex];
-
-    if (
-        player &&
-        typeof player.team === "number"
-    ) {
-        return player.team;
-    }
-
-    return playerIndex % 2;
+function getHumanPlayers(room) {
+    return getRoomPlayers(room).filter(player => !player.isBot);
 }
 
-
-/* =========================
-   NAZWA DRUŻYNY
-========================= */
-
-function getTeamName(
-    game,
-    team
-) {
-
-    const players =
-        game.players.filter(
-            (player, index) =>
-                getPlayerTeam(
-                    game,
-                    index
-                ) === team
-        );
-
-
-    const humanNames =
-        players
-            .filter(
-                player => !player.bot
-            )
-            .map(
-                player => player.name
-            );
-
-
-    if (humanNames.length > 0) {
-        return humanNames.join(" + ");
-    }
-
-
-    const names =
-        players.map(
-            player => player.name
-        );
-
-
-    if (names.length > 0) {
-        return names.join(" + ");
-    }
-
-
-    return `Drużyna ${team + 1}`;
+function getTeamPlayers(room, team) {
+    return getRoomPlayers(room).filter(player => player.team === team);
 }
 
+function getTeamName(room, team) {
+    const players = getTeamPlayers(room, team);
 
-/* =========================
-   GRA
-========================= */
+    if (players.length === 0) {
+        return `Drużyna ${team + 1}`;
+    }
 
-function createGame(players) {
-
-    return {
-
-        players,
-
-        deck: [],
-
-        hands: [
-            [],
-            [],
-            [],
-            []
-        ],
-
-        trump: null,
-
-        currentPlayer: 0,
-
-        leader: 0,
-
-        phase: "initial",
-
-        trick: [],
-
-        tricksWon: [
-            0,
-            0
-        ],
-
-        /*
-           Punkty aktualnego rozdania.
-        */
-
-        scores: [
-            0,
-            0
-        ],
-
-        /*
-           Punkty z zakończonych rozdań.
-        */
-
-        overallScores: [
-            0,
-            0
-        ],
-
-        /*
-           Liczba wygranych całych rozdań.
-        */
-
-        gameWins: [
-            0,
-            0
-        ],
-
-        /*
-           Meldunki oczekujące na potwierdzenie
-           przez wygranie sztycha.
-
-           Przykład:
-
-           pendingMelds[0] = 20
-
-           oznacza, że drużyna 1 ma
-           niezatwierdzony meldunek za 20.
-        */
-
-        pendingMelds: [
-            0,
-            0
-        ],
-
-        /*
-           Informacja, kto zgłosił meldunek.
-        */
-
-        pendingMeldPlayers: [
-            [],
-            []
-        ],
-
-        handFinished: false,
-
-        winner: null,
-
-        lastTrickWinner: null,
-
-        message: "",
-
-        playerNames:
-            players.map(
-                player => player.name
-            )
-    };
+    return players
+        .map(player => player.name)
+        .join(" + ");
 }
 
+function arrangePlayersForTeams(room) {
+    const team0 = getTeamPlayers(room, 0);
+    const team1 = getTeamPlayers(room, 1);
 
-/* =========================
-   PIERWSZE 3 KARTY
-========================= */
-
-function dealInitialCards(game) {
-
-    game.deck =
-        shuffle(
-            createDeck()
-        );
-
-    game.hands = [
-        [],
-        [],
-        [],
-        []
-    ];
-
-    game.trick = [];
-
-    game.trump = null;
-
-    game.phase = "trump";
-
-    game.handFinished = false;
-
-    game.winner = null;
-
-    game.lastTrickWinner = null;
-
-    game.scores = [
-        0,
-        0
-    ];
-
-    game.tricksWon = [
-        0,
-        0
-    ];
-
-    /*
-       Czyścimy oczekujące meldunki
-       przy rozpoczęciu nowego rozdania.
-    */
-
-    game.pendingMelds = [
-        0,
-        0
-    ];
-
-    game.pendingMeldPlayers = [
-        [],
-        []
-    ];
-
-
-    /*
-       Rozdajemy po 3 karty.
-    */
-
-    for (let i = 0; i < 3; i++) {
-
-        for (
-            let player = 0;
-            player < 4;
-            player++
-        ) {
-
-            const card =
-                game.deck.pop();
-
-            if (card) {
-                game.hands[player].push(card);
-            }
-        }
-    }
-
-
-    game.message =
-        `Gracz ${game.players[game.currentPlayer].name} obiera kolor.`;
-}
-
-
-/* =========================
-   KOLEJNE 3 KARTY
-========================= */
-
-function dealRemainingCards(game) {
-
-    for (let i = 0; i < 3; i++) {
-
-        for (
-            let player = 0;
-            player < 4;
-            player++
-        ) {
-
-            const card =
-                game.deck.pop();
-
-            if (card) {
-                game.hands[player].push(card);
-            }
-        }
-    }
-
-
-    game.phase = "playing";
-
-    game.leader =
-        game.currentPlayer;
-
-    game.trick = [];
-
-    game.message =
-        `Zaczyna ${game.players[game.currentPlayer].name}.`;
-}
-
-
-/* =========================
-   OBIERANIE KOLORU
-========================= */
-
-function chooseTrump(
-    game,
-    suit
-) {
-
-    if (game.phase !== "trump") {
-
-        return {
-            error:
-                "Nie można teraz obierać koloru."
-        };
-    }
-
-
-    if (!SUITS.includes(suit)) {
-
-        return {
-            error:
-                "Nieprawidłowy kolor."
-        };
-    }
-
-
-    game.trump = suit;
-
-    return {
-        success: true
-    };
-}
-
-
-/* =========================
-   PORÓWNYWANIE KART
-========================= */
-
-function beatsCard(
-    game,
-    candidate,
-    current,
-    leadSuit
-) {
-
-    if (!current) {
-        return true;
-    }
-
-
-    const candidateTrump =
-        candidate.suit === game.trump;
-
-    const currentTrump =
-        current.suit === game.trump;
-
-
-    if (
-        candidateTrump &&
-        !currentTrump
-    ) {
-        return true;
-    }
-
-
-    if (
-        !candidateTrump &&
-        currentTrump
-    ) {
+    if (team0.length !== 2 || team1.length !== 2) {
         return false;
     }
 
-
-    if (
-        candidate.suit !==
-        current.suit
-    ) {
-        return false;
-    }
-
-
-    return (
-        RANK_POWER[candidate.rank] >
-        RANK_POWER[current.rank]
-    );
-}
-
-
-/* =========================
-   ZWYCIĘSKA KARTA
-========================= */
-
-function getWinningCard(game) {
-
-    if (!game.trick.length) {
-        return null;
-    }
-
-
-    const leadSuit =
-        game.trick[0].card.suit;
-
-
-    let winner =
-        game.trick[0];
-
-
-    for (
-        let i = 1;
-        i < game.trick.length;
-        i++
-    ) {
-
-        const play =
-            game.trick[i];
-
-
-        if (
-            beatsCard(
-                game,
-                play.card,
-                winner.card,
-                leadSuit
-            )
-        ) {
-
-            winner = play;
-        }
-    }
-
-
-    return winner;
-}
-
-
-/* =========================
-   LEGALNE KARTY
-========================= */
-
-function getLegalCards(
-    game,
-    playerIndex
-) {
-
-    const hand =
-        game.hands[playerIndex];
-
-
-    if (!hand || !hand.length) {
-        return [];
-    }
-
-
-    if (!game.trick.length) {
-        return [...hand];
-    }
-
-
-    const leadSuit =
-        game.trick[0].card.suit;
-
-
-    const cardsOfLeadSuit =
-        hand.filter(
-            card =>
-                card.suit === leadSuit
-        );
-
-
-    if (cardsOfLeadSuit.length > 0) {
-
-        const winner =
-            getWinningCard(game);
-
-
-        const cardsThatBeat =
-            cardsOfLeadSuit.filter(
-                card =>
-                    beatsCard(
-                        game,
-                        card,
-                        winner.card,
-                        leadSuit
-                    )
-            );
-
-
-        if (cardsThatBeat.length > 0) {
-            return cardsThatBeat;
-        }
-
-
-        return cardsOfLeadSuit;
-    }
-
-
-    return [...hand];
-}
-
-
-/* =========================
-   SPRAWDZENIE LEGALNOŚCI
-========================= */
-
-function isLegalCard(
-    game,
-    playerIndex,
-    card
-) {
-
-    const legal =
-        getLegalCards(
-            game,
-            playerIndex
-        );
-
-
-    return legal.some(
-        legalCard =>
-            legalCard.suit ===
-                card.suit &&
-            legalCard.rank ===
-                card.rank
-    );
-}
-
-
-/* =========================
-   ZAGRANIE KARTY
-========================= */
-
-function playCard(
-    game,
-    playerIndex,
-    card
-) {
-
-    if (game.handFinished) {
-
-        return {
-            error:
-                "Rozdanie już się zakończyło."
-        };
-    }
-
-
-    if (game.phase !== "playing") {
-
-        return {
-            error:
-                "Nie można teraz zagrać karty."
-        };
-    }
-
-
-    if (
-        playerIndex !==
-        game.currentPlayer
-    ) {
-
-        return {
-            error:
-                "To nie jest Twoja kolej."
-        };
-    }
-
-
-    if (
-        !card ||
-        !card.suit ||
-        !card.rank
-    ) {
-
-        return {
-            error:
-                "Nieprawidłowa karta."
-        };
-    }
-
-
-    if (
-        !isLegalCard(
-            game,
-            playerIndex,
-            card
-        )
-    ) {
-
-        return {
-            error:
-                "Nie możesz zagrać tej karty."
-        };
-    }
-
-
-    const hand =
-        game.hands[playerIndex];
-
-
-    const cardIndex =
-        hand.findIndex(
-            handCard =>
-                handCard.suit ===
-                    card.suit &&
-                handCard.rank ===
-                    card.rank
-        );
-
-
-    if (cardIndex === -1) {
-
-        return {
-            error:
-                "Nie masz tej karty."
-        };
-    }
-
-
-    const playedCard =
-        hand.splice(
-            cardIndex,
-            1
-        )[0];
-
-
-    const team =
-        getPlayerTeam(
-            game,
-            playerIndex
-        );
-
-
-    game.trick.push({
-
-        playerIndex,
-
-        playerName:
-            game.players[playerIndex].name,
-
-        team,
-
-        card:
-            playedCard
-    });
-
-
     /*
-       MELDUNEK
+        Układ przy stole:
 
-       Meldunek jest tylko zgłoszony.
+              [2] PARTNER
+                  ↑
+        [1] ←     → [3]
+                  ↓
+                [0] JA
 
-       NIE dodajemy jeszcze punktów
-       do game.scores.
+        Drużyna 0:
+        0 + 2
 
-       Trafiają one do pendingMelds.
-
-       Punkty zostaną zatwierdzone
-       dopiero po wygraniu sztycha.
+        Drużyna 1:
+        1 + 3
     */
 
-    if (
-        game.trick.length === 1 &&
-        playedCard.rank === "Q"
-    ) {
-
-        const hasKing =
-            hand.some(
-                handCard =>
-                    handCard.suit ===
-                        playedCard.suit &&
-                    handCard.rank ===
-                        "K"
-            );
-
-
-        if (hasKing) {
-
-            const meldPoints =
-                playedCard.suit ===
-                    game.trump
-                    ? 40
-                    : 20;
-
-
-            /*
-               Jeżeli drużyna ma już
-               oczekujący meldunek,
-               dokładamy kolejny.
-
-               Normalnie może to wystąpić
-               przy kilku meldunkach.
-            */
-
-            game.pendingMelds[team] +=
-                meldPoints;
-
-
-            game.pendingMeldPlayers[team]
-                .push({
-                    playerIndex,
-                    playerName:
-                        game.players[
-                            playerIndex
-                        ].name,
-                    suit:
-                        playedCard.suit,
-                    points:
-                        meldPoints
-                });
-
-
-            game.message =
-                `${game.players[playerIndex].name} melduje ${playedCard.suit} — oczekuje na wygrany sztych.`;
-        }
-    }
-
-
-    /*
-       Cztery karty = koniec sztycha.
-    */
-
-    if (game.trick.length === 4) {
-
-        finishTrick(game);
-
-        return {
-            success: true
-        };
-    }
-
-
-    game.currentPlayer =
-        (playerIndex + 1) % 4;
-
-
-    /*
-       Jeżeli nie było meldunku,
-       normalny komunikat.
-    */
-
-    if (
-        !(
-            game.trick.length === 1 &&
-            playedCard.rank === "Q" &&
-            game.pendingMeldPlayers[team].some(
-                meld =>
-                    meld.playerIndex ===
-                    playerIndex
-            )
-        )
-    ) {
-
-        game.message =
-            `Kolej ${game.players[game.currentPlayer].name}.`;
-    }
-
-
-    return {
-        success: true
-    };
-}
-
-
-/* =========================
-   ZATWIERDZANIE MELDUNKÓW
-========================= */
-
-function confirmPendingMelds(
-    game,
-    team
-) {
-
-    const pending =
-        game.pendingMelds[team];
-
-
-    if (
-        !pending ||
-        pending <= 0
-    ) {
-        return 0;
-    }
-
-
-    /*
-       Dopiero teraz meldunek
-       trafia do punktów gry.
-    */
-
-    game.scores[team] +=
-        pending;
-
-
-    game.pendingMelds[team] = 0;
-
-
-    game.pendingMeldPlayers[team] = [];
-
-
-    return pending;
-}
-
-
-/* =========================
-   KONIEC SZTYCHA
-========================= */
-
-function finishTrick(game) {
-
-    const winner =
-        getWinningCard(game);
-
-
-    if (!winner) {
-        return;
-    }
-
-
-    const winnerIndex =
-        winner.playerIndex;
-
-
-    const winnerTeam =
-        getPlayerTeam(
-            game,
-            winnerIndex
-        );
-
-
-    /*
-       Najpierw punkty kart.
-    */
-
-    const trickPoints =
-        calculateTrickPoints(
-            game.trick
-        );
-
-
-    game.scores[winnerTeam] +=
-        trickPoints;
-
-
-    /*
-       Zliczamy sztych.
-    */
-
-    game.tricksWon[winnerTeam]++;
-
-
-    game.lastTrickWinner =
-        winnerIndex;
-
-
-    /*
-       TERAZ sprawdzamy meldunki.
-
-       Jeżeli zwycięska drużyna ma
-       oczekujący meldunek, dopiero
-       teraz go zatwierdzamy.
-    */
-
-    const confirmedMeldPoints =
-        confirmPendingMelds(
-            game,
-            winnerTeam
-        );
-
-
-    /*
-       Najpierw sprawdzamy 66,
-       bo zarówno punkty kart,
-       jak i zatwierdzony meldunek
-       są już w scores.
-    */
-
-    if (
-        check66(
-            game,
-            winnerTeam
-        )
-    ) {
-        return;
-    }
-
-
-    /*
-       Następny sztych zaczyna zwycięzca.
-    */
-
-    game.currentPlayer =
-        winnerIndex;
-
-
-    game.leader =
-        winnerIndex;
-
-
-    game.trick = [];
-
-
-    if (
-        confirmedMeldPoints > 0
-    ) {
-
-        game.message =
-            `${game.players[winnerIndex].name} bierze sztycha (+${trickPoints}) i zatwierdza meldunek +${confirmedMeldPoints}.`;
-
-    } else {
-
-        game.message =
-            `${game.players[winnerIndex].name} bierze sztycha (+${trickPoints}).`;
-    }
-}
-
-
-/* =========================
-   PUNKTY SZTYCHA
-========================= */
-
-function calculateTrickPoints(
-    trick
-) {
-
-    return trick.reduce(
-        (sum, play) =>
-            sum +
-            (
-                CARD_VALUES[
-                    play.card.rank
-                ] || 0
-            ),
-        0
-    );
-}
-
-
-/* =========================
-   66
-========================= */
-
-function check66(
-    game,
-    team
-) {
-
-    if (
-        game.scores[team] < 66
-    ) {
-        return false;
-    }
-
-
-    game.handFinished = true;
-
-    game.winner = team;
-
-
-    /*
-       Punkty z rozdania przechodzą
-       do punktów ogólnych.
-    */
-
-    game.overallScores[team] +=
-        game.scores[team];
-
-
-    /*
-       Jedno wygrane rozdanie.
-    */
-
-    game.gameWins[team]++;
-
-
-    const winningTeamName =
-        getTeamName(
-            game,
-            team
-        );
-
-
-    game.message =
-        `${winningTeamName} wygrywa rozdanie — ${game.scores[team]} punktów.`;
-
+    room.players = [
+        team0[0],
+        team1[0],
+        team0[1],
+        team1[1]
+    ];
 
     return true;
 }
 
+function sendLobby(room) {
+    const players = getRoomPlayers(room);
 
-/* =========================
-   STAN GRY
-========================= */
-
-function getGameState(game) {
-
-    const playerNames =
-        game.players.map(
-            player => player.name
-        );
-
-
-    return {
-
-        players:
-            game.players.map(
-                (player, index) => ({
-                    name:
-                        player.name,
-
-                    bot:
-                        !!player.bot,
-
-                    team:
-                        getPlayerTeam(
-                            game,
-                            index
-                        )
-                })
-            ),
-
-
-        playerNames,
-
-
-        /*
-           Ręka zostanie później
-           ograniczona po stronie klienta.
-        */
-
-        hands:
-            game.hands,
-
-
-        trump:
-            game.trump,
-
-
-        suitNames:
-            SUIT_NAMES,
-
-
-        currentPlayer:
-            game.currentPlayer,
-
-
-        leader:
-            game.leader,
-
-
-        phase:
-            game.phase,
-
-
-        trick:
-            game.trick,
-
-
-        /*
-           Punkty gry.
-        */
-
-        scores:
-            game.scores,
-
-
-        /*
-           Punkty ogólne.
-        */
-
-        overallScores:
-            game.overallScores,
-
-
-        /*
-           Całe punkty.
-        */
-
-        gameWins:
-            game.gameWins,
-
-
-        /*
-           Informacja pomocnicza
-           o oczekujących meldunkach.
-        */
-
-        pendingMelds:
-            game.pendingMelds,
-
-
-        tricksWon:
-            game.tricksWon,
-
-
-        handFinished:
-            game.handFinished,
-
-
-        winner:
-            game.winner,
-
-
-        lastTrickWinner:
-            game.lastTrickWinner,
-
-
-        message:
-            game.message,
-
-
-        teamNames: [
-            getTeamName(game, 0),
-            getTeamName(game, 1)
-        ]
-    };
+    for (const player of players) {
+        io.to(player.socketId).emit("lobbyState", {
+            roomId: room.id,
+            players: players.map(p => ({
+                name: p.name,
+                isBot: !!p.isBot,
+                team: p.team
+            })),
+            playerCount: players.length,
+            maxPlayers: 4
+        });
+    }
 }
 
+function sendGameState(room) {
+    if (!room.game) return;
 
-module.exports = {
+    const state = getGameState(room.game);
 
-    SUITS,
-    SUIT_NAMES,
-    RANKS,
-    CARD_VALUES,
-    RANK_POWER,
+    for (let index = 0; index < room.players.length; index++) {
+        const player = room.players[index];
 
-    createDeck,
-    shuffle,
+        const personalState = {
+            ...state,
 
-    createGame,
+            /*
+             * Klient potrzebuje dokładnie pola "hand".
+             */
+            hand: room.game.hands[index] || [],
 
-    dealInitialCards,
-    dealRemainingCards,
+            playerIndex: index,
 
-    chooseTrump,
+            myTeam: player.team,
 
-    beatsCard,
-    getWinningCard,
+            teamNames: [
+                getTeamName(room, 0),
+                getTeamName(room, 1)
+            ],
 
-    getLegalCards,
-    isLegalCard,
+            /*
+             * Nie wysyłamy cudzych kart.
+             */
+            hands: undefined
+        };
 
-    playCard,
-    finishTrick,
+        io.to(player.socketId).emit("gameState", personalState);
+    }
 
-    calculateTrickPoints,
-    check66,
+    /*
+     * W fazie obierania wysyłamy sygnał wyłącznie
+     * do gracza, który aktualnie ma obierać kolor.
+     */
+    if (
+        room.game.phase === "trump" &&
+        room.game.currentPlayer !== null &&
+        room.players[room.game.currentPlayer]
+    ) {
+        const player = room.players[room.game.currentPlayer];
 
-    getGameState
-};
+        io.to(player.socketId).emit("chooseTrump", {
+            hand: room.game.hands[room.game.currentPlayer] || [],
+            playerIndex: room.game.currentPlayer
+        });
+    }
+}
+
+function assignBotTeams(room) {
+    const teamCounts = [0, 0];
+
+    for (const player of room.players) {
+        if (player.team === 0 || player.team === 1) {
+            teamCounts[player.team]++;
+        }
+    }
+
+    for (const player of room.players) {
+        if (!player.isBot || player.team !== null) {
+            continue;
+        }
+
+        if (teamCounts[0] < 2 && teamCounts[0] <= teamCounts[1]) {
+            player.team = 0;
+            teamCounts[0]++;
+        } else {
+            player.team = 1;
+            teamCounts[1]++;
+        }
+    }
+}
+
+function startGame(room) {
+    const humans = getHumanPlayers(room);
+
+    /*
+     * Każdy człowiek musi najpierw wybrać drużynę.
+     */
+    for (const player of humans) {
+        if (player.team !== 0 && player.team !== 1) {
+            return {
+                ok: false,
+                error: "Każdy gracz musi wybrać drużynę."
+            };
+        }
+    }
+
+    /*
+     * Dobijamy botami do czterech graczy.
+     */
+    if (room.players.length < 4) {
+        fillBots(room.players);
+    }
+
+    /*
+     * Boty bez drużyny dostają drużynę.
+     */
+    assignBotTeams(room);
+
+    const team0 = getTeamPlayers(room, 0);
+    const team1 = getTeamPlayers(room, 1);
+
+    if (team0.length !== 2 || team1.length !== 2) {
+        return {
+            ok: false,
+            error: "Każda drużyna musi mieć dokładnie 2 graczy."
+        };
+    }
+
+    /*
+     * Ustawiamy graczy przy stole tak,
+     * żeby partner zawsze był naprzeciwko.
+     */
+    if (!arrangePlayersForTeams(room)) {
+        return {
+            ok: false,
+            error: "Nie udało się ustawić drużyn."
+        };
+    }
+
+    room.game = createGame(room.players);
+
+    dealInitialCards(room.game);
+
+    room.started = true;
+
+    for (const player of room.players) {
+        io.to(player.socketId).emit("gameStarted");
+    }
+
+    sendGameState(room);
+
+    processBotTurn(room);
+
+    return { ok: true };
+}
+
+function processBotTurn(room) {
+    if (!room.game || room.game.handFinished) {
+        return;
+    }
+
+    const game = room.game;
+    const currentIndex = game.currentPlayer;
+    const currentPlayer = room.players[currentIndex];
+
+    if (!currentPlayer || !currentPlayer.isBot) {
+        return;
+    }
+
+    /*
+     * BOT OBIERA KOLOR
+     */
+    if (game.phase === "trump") {
+        const trump = chooseBotTrump(game, currentIndex);
+
+        const result = chooseTrump(game, currentIndex, trump);
+
+        if (!result || result.ok === false) {
+            console.error("Bot nie mógł obrać koloru:", result);
+            return;
+        }
+
+        dealRemainingCards(game);
+
+        sendGameState(room);
+
+        setTimeout(() => {
+            processBotTurn(room);
+        }, 500);
+
+        return;
+    }
+
+    /*
+     * BOT GRA KARTĘ
+     */
+    if (game.phase === "playing") {
+        const card = chooseBotCard(game, currentIndex);
+
+        if (!card) {
+            console.error("Bot nie znalazł legalnej karty.");
+            return;
+        }
+
+        const result = playCard(game, currentIndex, card);
+
+        if (!result || result.ok === false) {
+            console.error("Bot nie mógł zagrać:", result);
+            return;
+        }
+
+        sendGameState(room);
+
+        setTimeout(() => {
+            processBotTurn(room);
+        }, 500);
+    }
+}
+
+io.on("connection", socket => {
+    console.log("Połączono:", socket.id);
+
+    socket.on("joinRoom", ({ roomId, name }) => {
+        roomId = String(roomId || "").trim().toUpperCase();
+        name = String(name || "").trim();
+
+        if (!roomId || !name) {
+            socket.emit("errorMessage", "Podaj kod pokoju i nick.");
+            return;
+        }
+
+        let room = rooms.get(roomId);
+
+        if (!room) {
+            room = {
+                id: roomId,
+                players: [],
+                started: false,
+                game: null
+            };
+
+            rooms.set(roomId, room);
+        }
+
+        if (room.started) {
+            socket.emit("errorMessage", "Ta gra już się rozpoczęła.");
+            return;
+        }
+
+        if (room.players.length >= 4) {
+            socket.emit("errorMessage", "Pokój jest pełny.");
+            return;
+        }
+
+        if (
+            room.players.some(
+                player =>
+                    !player.isBot &&
+                    player.name.toLowerCase() === name.toLowerCase()
+            )
+        ) {
+            socket.emit("errorMessage", "Taki nick jest już zajęty.");
+            return;
+        }
+
+        const player = {
+            socketId: socket.id,
+            name,
+            isBot: false,
+            team: null
+        };
+
+        room.players.push(player);
+
+        socket.join(roomId);
+
+        socket.roomId = roomId;
+
+        socket.emit("joinedRoom", {
+            roomId,
+            name
+        });
+
+        sendLobby(room);
+
+        console.log(
+            `Gracz ${name} dołączył do pokoju ${roomId}.`
+        );
+    });
+
+    socket.on("chooseTeam", team => {
+        const room = rooms.get(socket.roomId);
+
+        if (!room || room.started) {
+            return;
+        }
+
+        team = Number(team);
+
+        if (team !== 0 && team !== 1) {
+            return;
+        }
+
+        const player = room.players.find(
+            p => p.socketId === socket.id
+        );
+
+        if (!player) {
+            return;
+        }
+
+        const currentTeamPlayers = room.players.filter(
+            p => !p.isBot && p.team === team
+        );
+
+        if (
+            player.team !== team &&
+            currentTeamPlayers.length >= 2
+        ) {
+            socket.emit(
+                "errorMessage",
+                "Ta drużyna ma już dwóch graczy."
+            );
+            return;
+        }
+
+        player.team = team;
+
+        sendLobby(room);
+
+        /*
+         * Jeśli są już czterej ludzie i drużyny są kompletne,
+         * rozpoczynamy grę.
+         */
+        const humans = getHumanPlayers(room);
+
+        if (
+            humans.length === 4 &&
+            humans.every(
+                p => p.team === 0 || p.team === 1
+            )
+        ) {
+            const team0 = humans.filter(p => p.team === 0);
+            const team1 = humans.filter(p => p.team === 1);
+
+            if (team0.length === 2 && team1.length === 2) {
+                const result = startGame(room);
+
+                if (!result.ok) {
+                    socket.emit(
+                        "errorMessage",
+                        result.error
+                    );
+                }
+            }
+        }
+    });
+
+    socket.on("startWithBots", () => {
+        const room = rooms.get(socket.roomId);
+
+        if (!room || room.started) {
+            return;
+        }
+
+        const player = room.players.find(
+            p => p.socketId === socket.id
+        );
+
+        if (!player) {
+            return;
+        }
+
+        if (player.team !== 0 && player.team !== 1) {
+            socket.emit(
+                "errorMessage",
+                "Najpierw wybierz swoją drużynę."
+            );
+            return;
+        }
+
+        const result = startGame(room);
+
+        if (!result.ok) {
+            socket.emit(
+                "errorMessage",
+                result.error
+            );
+        }
+    });
+
+    socket.on("chooseTrump", trump => {
+        const room = rooms.get(socket.roomId);
+
+        if (!room || !room.game) {
+            return;
+        }
+
+        const playerIndex = room.players.findIndex(
+            p => p.socketId === socket.id
+        );
+
+        if (playerIndex === -1) {
+            return;
+        }
+
+        if (
+            room.game.phase !== "trump" ||
+            room.game.currentPlayer !== playerIndex
+        ) {
+            return;
+        }
+
+        const result = chooseTrump(
+            room.game,
+            playerIndex,
+            trump
+        );
+
+        if (!result || result.ok === false) {
+            socket.emit(
+                "errorMessage",
+                result?.error || "Nie można obrać tego koloru."
+            );
+            return;
+        }
+
+        /*
+         * Po wybraniu koloru rozdawane są pozostałe 3 karty.
+         */
+        dealRemainingCards(room.game);
+
+        sendGameState(room);
+
+        processBotTurn(room);
+    });
+
+    socket.on("playCard", card => {
+        const room = rooms.get(socket.roomId);
+
+        if (!room || !room.game) {
+            return;
+        }
+
+        const playerIndex = room.players.findIndex(
+            p => p.socketId === socket.id
+        );
+
+        if (playerIndex === -1) {
+            return;
+        }
+
+        const result = playCard(
+            room.game,
+            playerIndex,
+            card
+        );
+
+        if (!result || result.ok === false) {
+            socket.emit(
+                "errorMessage",
+                result?.error || "Nie można zagrać tej karty."
+            );
+            return;
+        }
+
+        sendGameState(room);
+
+        processBotTurn(room);
+    });
+
+    socket.on("leaveRoom", () => {
+        leaveRoom(socket);
+    });
+
+    socket.on("disconnect", () => {
+        console.log("Rozłączono:", socket.id);
+
+        leaveRoom(socket);
+    });
+});
+
+function leaveRoom(socket) {
+    const roomId = socket.roomId;
+
+    if (!roomId) {
+        return;
+    }
+
+    const room = rooms.get(roomId);
+
+    if (!room) {
+        return;
+    }
+
+    const index = room.players.findIndex(
+        player => player.socketId === socket.id
+    );
+
+    if (index === -1) {
+        return;
+    }
+
+    const player = room.players[index];
+
+    /*
+     * Jeśli gra jeszcze się nie zaczęła,
+     * usuwamy gracza normalnie z lobby.
+     */
+    if (!room.started) {
+        room.players.splice(index, 1);
+
+        sendLobby(room);
+
+        if (room.players.length === 0) {
+            rooms.delete(roomId);
+        }
+
+        return;
+    }
+
+    /*
+     * Po rozpoczęciu gry na razie nie przebudowujemy stołu.
+     */
+    console.log(
+        `Gracz ${player.name} opuścił grę ${roomId}.`
+    );
+}
+
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, () => {
+    console.log(`Serwer działa na porcie ${PORT}`);
+});
