@@ -6,11 +6,15 @@
     <title>Sznaps</title>
     <link rel="stylesheet" href="/style.css">
 </head>
+
 <body>
 
 <section id="startScreen" class="screen">
+
     <div class="start-box">
+
         <h1>⛏️ SZNAPS</h1>
+
         <p>Gra karciana spod ziemi</p>
 
         <input
@@ -32,8 +36,11 @@
         <button id="joinButton" type="button">
             WEJDŹ DO GRY
         </button>
+
     </div>
+
 </section>
+
 
 <section id="lobbyScreen" class="screen">
 
@@ -42,16 +49,21 @@
         <h2>POCZEKALNIA</h2>
 
         <div class="lobby-room">
-            Pokój: <strong id="lobbyRoom">—</strong>
+            Pokój:
+            <strong id="lobbyRoom">—</strong>
         </div>
 
-        <div id="lobbyStatus" class="lobby-status">
+        <div
+            id="lobbyStatus"
+            class="lobby-status"
+        >
             Oczekiwanie na graczy...
         </div>
 
         <h3>Gracze</h3>
 
         <div id="lobbyPlayers"></div>
+
 
         <div class="team-selection">
 
@@ -79,11 +91,15 @@
 
             </div>
 
-            <div id="selectedTeam" class="selected-team">
+            <div
+                id="selectedTeam"
+                class="selected-team"
+            >
                 Nie wybrano drużyny
             </div>
 
         </div>
+
 
         <div class="lobby-actions">
 
@@ -108,9 +124,15 @@
 
 </section>
 
+
 <section id="gameScreen" class="screen">
 
     <div class="game">
+
+
+        <!-- =========================
+             NAGŁÓWEK
+        ========================== -->
 
         <div class="game-header">
 
@@ -118,67 +140,203 @@
                 SZNAPS
             </div>
 
-            <div id="trumpDisplay" class="trump">
+            <div
+                id="trumpDisplay"
+                class="trump"
+            >
                 Obrany kolor: —
             </div>
 
         </div>
 
+
+        <!-- =========================
+             PUNKTACJA
+        ========================== -->
+
         <div class="scores">
+
+
+            <!-- DRUŻYNA 1 -->
 
             <div class="score-box">
 
-                <div id="team1Name" class="score-name">
+                <div
+                    id="team1Name"
+                    class="score-name"
+                >
                     Drużyna 1
                 </div>
 
-                <div id="scoreTeam1" class="score-value">
-                    0
+
+                <div class="score-section">
+
+                    <div class="score-label">
+                        Punkty gry
+                    </div>
+
+                    <div
+                        id="scoreTeam1"
+                        class="score-value"
+                    >
+                        0
+                    </div>
+
+                </div>
+
+
+                <div class="score-section">
+
+                    <div class="score-label">
+                        Punkty ogólne
+                    </div>
+
+                    <div
+                        id="overallTeam1"
+                        class="score-secondary"
+                    >
+                        0
+                    </div>
+
+                </div>
+
+
+                <div class="score-section">
+
+                    <div class="score-label">
+                        Całe punkty
+                    </div>
+
+                    <div
+                        id="gamesTeam1"
+                        class="score-secondary"
+                    >
+                        0
+                    </div>
+
                 </div>
 
             </div>
 
+
+            <!-- DRUŻYNA 2 -->
+
             <div class="score-box">
 
-                <div id="team2Name" class="score-name">
+                <div
+                    id="team2Name"
+                    class="score-name"
+                >
                     Drużyna 2
                 </div>
 
-                <div id="scoreTeam2" class="score-value">
-                    0
+
+                <div class="score-section">
+
+                    <div class="score-label">
+                        Punkty gry
+                    </div>
+
+                    <div
+                        id="scoreTeam2"
+                        class="score-value"
+                    >
+                        0
+                    </div>
+
+                </div>
+
+
+                <div class="score-section">
+
+                    <div class="score-label">
+                        Punkty ogólne
+                    </div>
+
+                    <div
+                        id="overallTeam2"
+                        class="score-secondary"
+                    >
+                        0
+                    </div>
+
+                </div>
+
+
+                <div class="score-section">
+
+                    <div class="score-label">
+                        Całe punkty
+                    </div>
+
+                    <div
+                        id="gamesTeam2"
+                        class="score-secondary"
+                    >
+                        0
+                    </div>
+
                 </div>
 
             </div>
 
         </div>
 
+
+        <!-- =========================
+             STÓŁ
+        ========================== -->
+
         <div class="table">
 
-            <div id="topPlayer" class="player player-top">
+
+            <div
+                id="topPlayer"
+                class="player player-top"
+            >
                 —
             </div>
 
-            <div id="leftPlayer" class="player player-left">
+
+            <div
+                id="leftPlayer"
+                class="player player-left"
+            >
                 —
             </div>
 
-            <div id="rightPlayer" class="player player-right">
+
+            <div
+                id="rightPlayer"
+                class="player player-right"
+            >
                 —
             </div>
+
 
             <div id="playedCards"></div>
+
 
             <div id="myCards"></div>
 
         </div>
 
-        <div id="gameMessage" aria-live="polite">
+
+        <!-- =========================
+             KOMUNIKAT
+        ========================== -->
+
+        <div
+            id="gameMessage"
+            aria-live="polite"
+        >
             —
         </div>
 
     </div>
 
 </section>
+
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="/game.js"></script>
