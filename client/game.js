@@ -9,45 +9,86 @@ let lufaInterval = null;
 DOM
 ========================= */
 
-const startScreen = document.getElementById("startScreen");
-const lobbyScreen = document.getElementById("lobbyScreen");
-const gameScreen = document.getElementById("gameScreen");
+const startScreen =
+document.getElementById("startScreen");
 
-const nicknameInput = document.getElementById("nickname");
-const roomInput = document.getElementById("room");
+const lobbyScreen =
+document.getElementById("lobbyScreen");
 
-const joinButton = document.getElementById("joinButton");
-const leaveButton = document.getElementById("leaveButton");
+const gameScreen =
+document.getElementById("gameScreen");
 
-const team1Button = document.getElementById("team1Button");
-const team2Button = document.getElementById("team2Button");
+const nicknameInput =
+document.getElementById("nickname");
 
-const botsButton = document.getElementById("botsButton");
+const roomInput =
+document.getElementById("room");
 
-const startMessage = document.getElementById("startMessage");
+const joinButton =
+document.getElementById("joinButton");
 
-const lobbyRoom = document.getElementById("lobbyRoom");
-const lobbyStatus = document.getElementById("lobbyStatus");
-const lobbyPlayers = document.getElementById("lobbyPlayers");
-const selectedTeamDisplay = document.getElementById("selectedTeam");
+const leaveButton =
+document.getElementById("leaveButton");
 
-const trumpDisplay = document.getElementById("trumpDisplay");
+const team1Button =
+document.getElementById("team1Button");
 
-const scoreTeam1 = document.getElementById("scoreTeam1");
-const scoreTeam2 = document.getElementById("scoreTeam2");
+const team2Button =
+document.getElementById("team2Button");
 
-const overallTeam1 = document.getElementById("overallTeam1");
-const overallTeam2 = document.getElementById("overallTeam2");
+const botsButton =
+document.getElementById("botsButton");
 
-const gamesTeam1 = document.getElementById("gamesTeam1");
-const gamesTeam2 = document.getElementById("gamesTeam2");
+const startMessage =
+document.getElementById("startMessage");
 
-const team1Name = document.getElementById("team1Name");
-const team2Name = document.getElementById("team2Name");
+const lobbyRoom =
+document.getElementById("lobbyRoom");
 
-const topPlayer = document.getElementById("topPlayer");
-const leftPlayer = document.getElementById("leftPlayer");
-const rightPlayer = document.getElementById("rightPlayer");
+const lobbyStatus =
+document.getElementById("lobbyStatus");
+
+const lobbyPlayers =
+document.getElementById("lobbyPlayers");
+
+const selectedTeamDisplay =
+document.getElementById("selectedTeam");
+
+const trumpDisplay =
+document.getElementById("trumpDisplay");
+
+const scoreTeam1 =
+document.getElementById("scoreTeam1");
+
+const scoreTeam2 =
+document.getElementById("scoreTeam2");
+
+const overallTeam1 =
+document.getElementById("overallTeam1");
+
+const overallTeam2 =
+document.getElementById("overallTeam2");
+
+const gamesTeam1 =
+document.getElementById("gamesTeam1");
+
+const gamesTeam2 =
+document.getElementById("gamesTeam2");
+
+const team1Name =
+document.getElementById("team1Name");
+
+const team2Name =
+document.getElementById("team2Name");
+
+const topPlayer =
+document.getElementById("topPlayer");
+
+const leftPlayer =
+document.getElementById("leftPlayer");
+
+const rightPlayer =
+document.getElementById("rightPlayer");
 
 const currentPlayerName =
 document.getElementById("currentPlayerName");
@@ -109,11 +150,15 @@ HELPERS
 ========================= */
 
 function showScreen(screen) {
-startScreen.classList.add("hidden");
-lobbyScreen.classList.add("hidden");
-gameScreen.classList.add("hidden");
+if (!screen) {
+return;
+}
 
 ```
+startScreen?.classList.add("hidden");
+lobbyScreen?.classList.add("hidden");
+gameScreen?.classList.add("hidden");
+
 screen.classList.remove("hidden");
 ```
 
@@ -213,24 +258,18 @@ if (myIndex === null) {
 }
 
 if (
-    Number.isInteger(
-        state.currentPlayer
-    )
+    Number.isInteger(state.currentPlayer)
 ) {
     return (
-        state.currentPlayer ===
-        myIndex
+        state.currentPlayer === myIndex
     );
 }
 
 if (
-    Number.isInteger(
-        state.chooser
-    )
+    Number.isInteger(state.chooser)
 ) {
     return (
-        state.chooser ===
-        myIndex
+        state.chooser === myIndex
     );
 }
 
@@ -255,13 +294,10 @@ if (myIndex === null) {
 }
 
 if (
-    Number.isInteger(
-        state.chooser
-    )
+    Number.isInteger(state.chooser)
 ) {
     return (
-        state.chooser ===
-        myIndex
+        state.chooser === myIndex
     );
 }
 
@@ -334,10 +370,7 @@ for (
     }
 }
 
-return (
-    winner?.card ||
-    null
-);
+return winner?.card || null;
 ```
 
 }
@@ -359,27 +392,16 @@ const candidateSuit =
 const currentSuit =
     current.suit;
 
-/*
- * Ten sam kolor:
- * wygrywa wyższa karta.
- */
 if (
     candidateSuit ===
     currentSuit
 ) {
     return (
-        cardRankPower(
-            candidate.rank
-        ) >
-        cardRankPower(
-            current.rank
-        )
+        cardRankPower(candidate.rank) >
+        cardRankPower(current.rank)
     );
 }
 
-/*
- * Atut przebija każdy nieatut.
- */
 if (
     trump &&
     candidateSuit === trump &&
@@ -388,9 +410,6 @@ if (
     return true;
 }
 
-/*
- * Nieatut nie przebija atutu.
- */
 if (
     trump &&
     candidateSuit !== trump &&
@@ -399,10 +418,6 @@ if (
     return false;
 }
 
-/*
- * Jeżeli nie ma atutu w porównaniu,
- * wygrywa karta w kolorze wyjścia.
- */
 return (
     candidateSuit === leadSuit &&
     currentSuit !== leadSuit
@@ -426,9 +441,7 @@ if (
     return false;
 }
 
-if (
-    !isMyTurn(state)
-) {
+if (!isMyTurn(state)) {
     return false;
 }
 
@@ -456,10 +469,6 @@ const trump =
 const leadSuit =
     getLeadSuit(state);
 
-/*
- * Pierwsza karta w sztychu:
- * można zagrać dowolną.
- */
 if (!leadSuit) {
     return true;
 }
@@ -467,50 +476,64 @@ if (!leadSuit) {
 const hasLeadSuit =
     hand.some(
         c =>
-            c.suit ===
-            leadSuit
+            c.suit === leadSuit
     );
 
 /*
- * Jeżeli mamy kolor wyjścia,
- * musimy nim zagrać.
+ * Mamy kolor wyjścia.
+ * Musimy nim zagrać.
  */
+
 if (hasLeadSuit) {
-    if (
-        card.suit !==
-        leadSuit
-    ) {
+    if (card.suit !== leadSuit) {
         return false;
     }
+
+    const currentWinner =
+        getCurrentWinningCard(state);
 
     /*
      * Jeżeli możemy przebić aktualnego
      * zwycięzcę, musimy to zrobić.
      */
-    const currentWinner =
-        getCurrentWinningCard(
-            state
-        );
 
-    if (
-        currentWinner &&
-        cardBeats(
-            card,
-            currentWinner,
-            leadSuit,
-            trump
-        )
-    ) {
+    if (currentWinner) {
+        const canSelectedCardBeat =
+            cardBeats(
+                card,
+                currentWinner,
+                leadSuit,
+                trump
+            );
+
+        if (canSelectedCardBeat) {
+            const canBeat =
+                hand.some(
+                    c =>
+                        c.suit === leadSuit &&
+                        cardBeats(
+                            c,
+                            currentWinner,
+                            leadSuit,
+                            trump
+                        )
+                );
+
+            if (canBeat) {
+                return true;
+            }
+        }
+
         /*
-         * Sprawdzamy, czy istnieje
-         * jakakolwiek karta z ręki,
-         * która może przebić.
+         * Jeżeli wybrana karta nie przebija,
+         * sprawdzamy, czy istnieje inna karta,
+         * która przebija.
          */
-        const canBeat =
+
+        const canBeatWithLeadSuit =
             hand.some(
                 c =>
-                    c.suit ===
-                        leadSuit &&
+                    c.suit === leadSuit &&
                     cardBeats(
                         c,
                         currentWinner,
@@ -519,21 +542,11 @@ if (hasLeadSuit) {
                     )
             );
 
-        if (canBeat) {
-            return cardBeats(
-                card,
-                currentWinner,
-                leadSuit,
-                trump
-            );
+        if (canBeatWithLeadSuit) {
+            return false;
         }
     }
 
-    /*
-     * Jeżeli nie możemy przebić,
-     * dowolna karta w kolorze
-     * wyjścia jest legalna.
-     */
     return true;
 }
 
@@ -542,42 +555,35 @@ if (hasLeadSuit) {
  *
  * Jeżeli mamy atut, musimy nim zagrać.
  */
+
 if (trump) {
     const hasTrump =
         hand.some(
             c =>
-                c.suit ===
-                trump
+                c.suit === trump
         );
 
     if (hasTrump) {
-        if (
-            card.suit !==
-            trump
-        ) {
+        if (card.suit !== trump) {
             return false;
         }
 
-        /*
-         * Jeżeli aktualny zwycięzca
-         * jest już atutem, a mamy wyższy
-         * atut, musimy nim przebić.
-         */
         const currentWinner =
-            getCurrentWinningCard(
-                state
-            );
+            getCurrentWinningCard(state);
+
+        /*
+         * Jeżeli aktualny zwycięzca jest atutem
+         * i mamy wyższy atut, musimy przebić.
+         */
 
         if (
             currentWinner &&
-            currentWinner.suit ===
-                trump
+            currentWinner.suit === trump
         ) {
             const canBeat =
                 hand.some(
                     c =>
-                        c.suit ===
-                            trump &&
+                        c.suit === trump &&
                         cardBeats(
                             c,
                             currentWinner,
@@ -602,8 +608,9 @@ if (trump) {
 
 /*
  * Nie mamy ani koloru wyjścia,
- * ani atutu — możemy zagrać dowolną kartę.
+ * ani atutu — dowolna karta.
  */
+
 return true;
 ```
 
@@ -627,17 +634,11 @@ lobbyStatus.textContent =
 
 lobbyPlayers.innerHTML = "";
 
-if (
-    Array.isArray(
-        state.players
-    )
-) {
+if (Array.isArray(state.players)) {
     state.players.forEach(
         player => {
             const element =
-                document.createElement(
-                    "div"
-                );
+                document.createElement("div");
 
             element.className =
                 "lobbyPlayer";
@@ -645,16 +646,12 @@ if (
             let teamText =
                 "Bez drużyny";
 
-            if (
-                player.team === 0
-            ) {
+            if (player.team === 0) {
                 teamText =
                     "Drużyna 1";
             }
 
-            if (
-                player.team === 1
-            ) {
+            if (player.team === 1) {
                 teamText =
                     "Drużyna 2";
             }
@@ -667,8 +664,7 @@ if (
             element.innerHTML =
                 `<strong>${escapeHtml(
                     player.name
-                )}</strong>
-                 — ${teamText}${botText}`;
+                )}</strong> — ${teamText}${botText}`;
 
             lobbyPlayers.appendChild(
                 element
@@ -677,9 +673,7 @@ if (
     );
 }
 
-if (
-    selectedTeam === null
-) {
+if (selectedTeam === null) {
     selectedTeamDisplay.textContent =
         "Nie wybrano drużyny.";
 } else {
@@ -758,9 +752,7 @@ state.players || [];
 
 ```
 const myIndex =
-    Number.isInteger(
-        state.myPlayerIndex
-    )
+    Number.isInteger(state.myPlayerIndex)
         ? state.myPlayerIndex
         : 0;
 
@@ -804,10 +796,7 @@ TRUMP
 ========================= */
 
 function renderTrump(state) {
-if (
-state.mode !==
-"normal"
-) {
+if (state.mode !== "normal") {
 trumpDisplay.textContent =
 "Brak";
 
@@ -830,9 +819,7 @@ playedCards.innerHTML = "";
 
 ```
 const cards =
-    Array.isArray(
-        state.playedCards
-    )
+    Array.isArray(state.playedCards)
         ? state.playedCards
         : [];
 
@@ -846,9 +833,7 @@ cards.forEach(
         }
 
         const element =
-            document.createElement(
-                "div"
-            );
+            document.createElement("div");
 
         element.className =
             `playedCard ${
@@ -862,7 +847,6 @@ cards.forEach(
                     "Gracz"
                 )}
             </span>
-
             <span class="cardSymbol">
                 ${escapeHtml(
                     cardSymbol(card)
@@ -887,9 +871,7 @@ myCards.innerHTML = "";
 
 ```
 const hand =
-    Array.isArray(
-        state.hand
-    )
+    Array.isArray(state.hand)
         ? state.hand
         : [];
 
@@ -902,9 +884,7 @@ hand.forEach(
             );
 
         const button =
-            document.createElement(
-                "button"
-            );
+            document.createElement("button");
 
         button.type =
             "button";
@@ -951,9 +931,7 @@ GAME INFO
 ========================= */
 
 function renderGameInfo(state) {
-if (
-state.currentPlayerName
-) {
+if (state.currentPlayerName) {
 currentPlayerInfo.textContent =
 `Ruch: ${
                 state.currentPlayerName
@@ -1031,13 +1009,8 @@ if (choosingPhase) {
     return;
 }
 
-if (
-    state.phase === "lufa"
-) {
-    renderLufaActions(
-        state
-    );
-
+if (state.phase === "lufa") {
+    renderLufaActions(state);
     return;
 }
 ```
@@ -1068,14 +1041,12 @@ const updateTimer =
         const remaining =
             Math.max(
                 0,
-                until -
-                    Date.now()
+                until - Date.now()
             );
 
         const seconds =
             Math.ceil(
-                remaining /
-                    1000
+                remaining / 1000
             );
 
         if (seconds > 0) {
@@ -1102,8 +1073,7 @@ lufaInterval =
         () => {
             if (
                 !latestState ||
-                latestState.phase !==
-                    "lufa"
+                latestState.phase !== "lufa"
             ) {
                 clearInterval(
                     lufaInterval
@@ -1216,8 +1186,7 @@ if (
 
 if (
     latestState.dealStage !== 1 ||
-    latestState.phase !==
-        "trump"
+    latestState.phase !== "trump"
 ) {
     return;
 }
@@ -1252,8 +1221,7 @@ if (
 
 if (
     latestState.dealStage !== 1 ||
-    latestState.phase !==
-        "trump"
+    latestState.phase !== "trump"
 ) {
     return;
 }
@@ -1286,8 +1254,7 @@ return;
 
 ```
 if (
-    latestState.phase !==
-    "lufa"
+    latestState.phase !== "lufa"
 ) {
     return;
 }
@@ -1306,8 +1273,7 @@ return;
 
 ```
 if (
-    latestState.phase !==
-    "lufa"
+    latestState.phase !== "lufa"
 ) {
     return;
 }
@@ -1323,21 +1289,21 @@ socket.emit(
 BUTTON EVENTS
 ========================= */
 
-team1Button.addEventListener(
+team1Button?.addEventListener(
 "click",
 () => {
 chooseTeam(0);
 }
 );
 
-team2Button.addEventListener(
+team2Button?.addEventListener(
 "click",
 () => {
 chooseTeam(1);
 }
 );
 
-joinButton.addEventListener(
+joinButton?.addEventListener(
 "click",
 () => {
 const nickname =
@@ -1366,7 +1332,9 @@ nicknameInput.value.trim();
     }
 
     startMessage.textContent =
-        "";
+        "Łączenie...";
+
+    joinButton.disabled = true;
 
     socket.emit(
         "joinRoom",
@@ -1380,7 +1348,7 @@ nicknameInput.value.trim();
 
 );
 
-botsButton.addEventListener(
+botsButton?.addEventListener(
 "click",
 () => {
 socket.emit(
@@ -1389,7 +1357,7 @@ socket.emit(
 }
 );
 
-leaveButton.addEventListener(
+leaveButton?.addEventListener(
 "click",
 () => {
 socket.emit(
@@ -1423,28 +1391,28 @@ socket.emit(
 TRUMP BUTTONS
 ========================= */
 
-heartButton.addEventListener(
+heartButton?.addEventListener(
 "click",
 () => {
 chooseTrump("♥");
 }
 );
 
-diamondButton.addEventListener(
+diamondButton?.addEventListener(
 "click",
 () => {
 chooseTrump("♦");
 }
 );
 
-clubButton.addEventListener(
+clubButton?.addEventListener(
 "click",
 () => {
 chooseTrump("♣");
 }
 );
 
-spadeButton.addEventListener(
+spadeButton?.addEventListener(
 "click",
 () => {
 chooseTrump("♠");
@@ -1455,7 +1423,7 @@ chooseTrump("♠");
 SPECIAL BUTTONS
 ========================= */
 
-betterButton.addEventListener(
+betterButton?.addEventListener(
 "click",
 () => {
 chooseSpecialMode(
@@ -1464,7 +1432,7 @@ chooseSpecialMode(
 }
 );
 
-worseButton.addEventListener(
+worseButton?.addEventListener(
 "click",
 () => {
 chooseSpecialMode(
@@ -1477,14 +1445,14 @@ chooseSpecialMode(
 LUFA BUTTONS
 ========================= */
 
-lufaButton.addEventListener(
+lufaButton?.addEventListener(
 "click",
 () => {
 callLufa();
 }
 );
 
-backLufaButton.addEventListener(
+backLufaButton?.addEventListener(
 "click",
 () => {
 callBackLufa();
@@ -1495,25 +1463,19 @@ callBackLufa();
 ENTER TO JOIN
 ========================= */
 
-nicknameInput.addEventListener(
+nicknameInput?.addEventListener(
 "keydown",
 event => {
-if (
-event.key ===
-"Enter"
-) {
+if (event.key === "Enter") {
 roomInput.focus();
 }
 }
 );
 
-roomInput.addEventListener(
+roomInput?.addEventListener(
 "keydown",
 event => {
-if (
-event.key ===
-"Enter"
-) {
+if (event.key === "Enter") {
 joinButton.click();
 }
 }
@@ -1528,17 +1490,37 @@ socket.on(
 () => {
 mySocketId =
 socket.id;
+
+```
+    joinButton.disabled = false;
 }
+```
+
+);
+
+socket.on(
+"connect_error",
+error => {
+joinButton.disabled = false;
+
+```
+    startMessage.textContent =
+        "Nie udało się połączyć z serwerem.";
+}
+```
+
 );
 
 socket.on(
 "errorMessage",
 message => {
-startMessage.textContent =
-message ||
-"Wystąpił błąd.";
+joinButton.disabled = false;
 
 ```
+    startMessage.textContent =
+        message ||
+        "Wystąpił błąd.";
+
     if (
         !gameScreen.classList.contains(
             "hidden"
@@ -1564,6 +1546,9 @@ message;
         renderGameInfo(
             latestState
         );
+    } else {
+        startMessage.textContent =
+            message || "";
     }
 }
 ```
@@ -1574,9 +1559,11 @@ socket.on(
 "lobbyState",
 state => {
 latestState =
-null;
+state;
 
 ```
+    joinButton.disabled = false;
+
     showScreen(
         lobbyScreen
     );
@@ -1596,6 +1583,8 @@ latestState =
 state;
 
 ```
+    joinButton.disabled = false;
+
     showScreen(
         gameScreen
     );
@@ -1615,6 +1604,8 @@ latestState =
 state;
 
 ```
+    joinButton.disabled = false;
+
     showScreen(
         gameScreen
     );
@@ -1626,3 +1617,11 @@ state;
 ```
 
 );
+
+/*
+
+* Na starcie zawsze pokazujemy ekran logowania.
+* Dzięki temu klient nie zostaje w nieokreślonym stanie.
+  */
+
+showScreen(startScreen);
