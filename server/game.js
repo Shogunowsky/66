@@ -34,7 +34,6 @@ DECK
 function createDeck() {
 const deck = [];
 
-```
 for (const suit of SUITS) {
     for (const rank of RANKS) {
         deck.push({
@@ -47,7 +46,6 @@ for (const suit of SUITS) {
 }
 
 return deck;
-```
 
 }
 
@@ -58,13 +56,11 @@ Math.floor(
 Math.random() * (i + 1)
 );
 
-```
     [deck[i], deck[j]] =
         [deck[j], deck[i]];
 }
 
 return deck;
-```
 
 }
 
@@ -76,7 +72,6 @@ function createGame(players) {
 return {
 players,
 
-```
     deck: [],
 
     hands: [
@@ -144,6 +139,8 @@ players,
 
     lufaActive: false,
 
+    earlyLufaCalled: false,
+
     lastLufaPlayer: null,
 
     lufaWindow: false,
@@ -172,7 +169,6 @@ players,
 
     message: ""
 };
-```
 
 }
 
@@ -183,7 +179,6 @@ DEALING
 function resetHandData(game) {
 game.trick = [];
 
-```
 game.trump = null;
 
 game.handFinished = false;
@@ -219,6 +214,8 @@ game.lufaMultiplier = 1;
 
 game.lufaActive = false;
 
+game.earlyLufaCalled = false;
+
 game.lastLufaPlayer = null;
 
 game.lufaWindow = false;
@@ -234,7 +231,6 @@ game.specialCaught = false;
 game.specialSoloTricks = 0;
 
 game.specialOpponentTricks = 0;
-```
 
 }
 
@@ -244,7 +240,6 @@ shuffle(
 createDeck()
 );
 
-```
 game.hands = [
     [],
     [],
@@ -298,7 +293,6 @@ game.message =
         game,
         game.chooser
     )} obiera kolor albo wybiera Lepszą/Gorszą.`;
-```
 
 }
 
@@ -315,7 +309,6 @@ error:
 };
 }
 
-```
 for (
     let round = 0;
     round < 3;
@@ -340,44 +333,20 @@ for (
 
 game.dealStage = "last3";
 
-game.phase = "playing";
-
+// Po dobraniu pełnych 6 kart najpierw jest okno deklaracji.
+game.phase = "lufa";
+game.lufaStage = "afterLast3";
 game.lufaWindow = false;
-
 game.lufaUntil = null;
 
-if (
-    game.mode === "lepsza" ||
-    game.mode === "gorsza"
-) {
-    game.currentPlayer =
-        game.soloPlayer;
-
-    game.leader =
-        game.soloPlayer;
-
-    game.message =
-        `${getPlayerName(
-            game,
-            game.soloPlayer
-        )} wychodzi.`;
-} else {
-    game.currentPlayer =
-        game.leader;
-
-    game.message =
-        `Wychodzi ${
-            getPlayerName(
-                game,
-                game.leader
-            )
-        }.`;
-}
+game.currentPlayer = game.chooser;
+game.leader = game.chooser;
+game.message =
+    "Rozdano 6 kart. Obierający pyta o Lepszą, Gorszą lub Lufę na kolor.";
 
 return {
     ok: true
 };
-```
 
 }
 
@@ -398,7 +367,6 @@ error:
 };
 }
 
-```
 if (
     game.currentPlayer !==
     playerIndex
@@ -434,6 +402,8 @@ game.lufaMultiplier = 1;
 
 game.lufaActive = false;
 
+game.earlyLufaCalled = false;
+
 game.lastLufaPlayer = null;
 
 game.message =
@@ -450,7 +420,6 @@ return {
     lufaUntil:
         game.lufaUntil
 };
-```
 
 }
 
@@ -459,106 +428,88 @@ SPECIAL MODES
 ========================= */
 
 function chooseSpecialMode(
-game,
-playerIndex,
-mode
+    game,
+    playerIndex,
+    mode
 ) {
-if (game.phase !== "trump") {
-return {
-ok: false,
-error:
-"Teraz nie można wybrać tego trybu."
-};
-}
+    if (mode !== "lepsza" && mode !== "gorsza") {
+        return {
+            ok: false,
+            error: "Nieprawidłowy tryb."
+        };
+    }
 
-```
-if (
-    game.currentPlayer !==
-    playerIndex
-) {
-    return {
-        ok: false,
-        error:
-            "Nie jest Twoja kolej na wybór."
-    };
-}
+    const choosingAtThree =
+        game.phase === "trump" &&
+        game.dealStage === "first3" &&
+        game.currentPlayer === playerIndex &&
+        playerIndex === game.chooser;
 
-if (
-    mode !== "lepsza" &&
-    mode !== "gorsza"
-) {
-    return {
-        ok: false,
-        error:
-            "Nieprawidłowy tryb."
-    };
-}
+    const declaringAtSix =
+        game.phase === "lufa" &&
+        game.dealStage === "last3" &&
+        game.lufaStage === "afterLast3" &&
+        game.lufaWindow &&
+        playerIndex !== game.chooser;
 
-game.mode = mode;
+    if (!choosingAtThree && !declaringAtSix) {
+        return {
+            ok: false,
+            error: "Teraz nie możesz wybrać tego trybu."
+        };
+    }
 
-game.trump = null;
+    game.mode = mode;
+    game.trump = null;
+    game.soloPlayer = playerIndex;
+    game.soloTeam = game.players[playerIndex]?.team ?? null;
 
-game.soloPlayer =
-    playerIndex;
-
-game.soloTeam =
-    game.players[playerIndex]?.team ??
-    null;
-
-if (
-    game.soloTeam === 0 ||
-    game.soloTeam === 1
-) {
-    game.skippedPlayer =
-        game.players.findIndex(
+    if (game.soloTeam === 0 || game.soloTeam === 1) {
+        game.skippedPlayer = game.players.findIndex(
             (player, index) =>
                 index !== playerIndex &&
-                player.team ===
-                    game.soloTeam
+                player.team === game.soloTeam
         );
-} else {
-    game.skippedPlayer = null;
-}
+    } else {
+        game.skippedPlayer = null;
+    }
 
-game.specialCaught = false;
+    game.specialCaught = false;
+    game.specialSoloTricks = 0;
+    game.specialOpponentTricks = 0;
 
-game.specialSoloTricks = 0;
+    const label = mode === "lepsza" ? "Lepsza" : "Gorsza";
 
-game.specialOpponentTricks = 0;
+    if (choosingAtThree) {
+        game.phase = "lufa";
+        game.lufaStage = "afterFirst3";
+        game.lufaWindow = true;
+        game.lufaUntil = Date.now() + 5000;
+        game.lufaMultiplier = 1;
+        game.lufaActive = false;
+        game.earlyLufaCalled = false;
+        game.lastLufaPlayer = null;
+        game.message = `${getPlayerName(game, playerIndex)} wybiera ${label}. 5 sekund na Lufę.`;
+        return {
+            ok: true,
+            mode,
+            lufaWindow: true,
+            lufaUntil: game.lufaUntil
+        };
+    }
 
-game.phase = "lufa";
-
-game.lufaStage =
-    "afterFirst3";
-
-game.lufaWindow = true;
-
-game.lufaUntil =
-    Date.now() + 5000;
-
-game.lufaMultiplier = 1;
-
-game.lufaActive = false;
-
-game.lastLufaPlayer = null;
-
-const label =
-    mode === "lepsza"
-        ? "Lepsza"
-        : "Gorsza";
-
-game.message =
-    `${getPlayerName(
-        game,
-        playerIndex
-    )} wybiera ${label}. 5 sekund na Lufę.`;
-
-return {
-    ok: true,
-    mode
-};
-```
-
+    // Po rozdaniu 6 kart deklaracja innego gracza rozpoczyna tryb specjalny.
+    game.lufaWindow = false;
+    game.lufaUntil = null;
+    game.phase = "playing";
+    game.currentPlayer = playerIndex;
+    game.leader = playerIndex;
+    game.message = `${getPlayerName(game, playerIndex)} zgłasza ${label} po rozdaniu 6 kart.`;
+    return {
+        ok: true,
+        mode,
+        lufaWindow: false
+    };
 }
 
 /* =========================
@@ -566,28 +517,25 @@ LUFA
 ========================= */
 
 function canCallLufa(
-game,
-playerIndex
+    game,
+    playerIndex
 ) {
-if (game.phase !== "lufa") {
-return false;
-}
+    if (game.phase !== "lufa" || !game.lufaWindow) {
+        return false;
+    }
 
-```
-if (!game.lufaWindow) {
-    return false;
-}
+    if (playerIndex === game.chooser) {
+        return false;
+    }
 
-if (
-    playerIndex ===
-    game.chooser
-) {
-    return false;
-}
+    // Jeśli Lufa padła po pierwszych 3 kartach, nie wolno wołać kolejnej po 6.
+    if (game.lufaStage === "afterLast3" && game.earlyLufaCalled) {
+        return false;
+    }
 
-return true;
-```
-
+    // Lufę na kolor można zgłosić po 6 kartach; na etapie 3 kart także po wyborze obierającego.
+    return game.lufaStage === "afterFirst3" ||
+        game.lufaStage === "afterLast3";
 }
 
 function callLufa(
@@ -607,10 +555,11 @@ error:
 };
 }
 
-```
 game.lufaMultiplier *= 2;
 
 game.lufaActive = true;
+
+if (game.lufaStage === "afterFirst3") game.earlyLufaCalled = true;
 
 game.lastLufaPlayer =
     playerIndex;
@@ -633,7 +582,6 @@ return {
     lufaUntil:
         game.lufaUntil
 };
-```
 
 }
 
@@ -654,10 +602,11 @@ error:
 };
 }
 
-```
 game.lufaMultiplier *= 2;
 
 game.lufaActive = true;
+
+if (game.lufaStage === "afterFirst3") game.earlyLufaCalled = true;
 
 game.lastLufaPlayer =
     playerIndex;
@@ -680,105 +629,67 @@ return {
     lufaUntil:
         game.lufaUntil
 };
-```
 
 }
 
 function finishLufaWindow(game) {
-if (!game.lufaWindow) {
-return {
-ok: false,
-error:
-"Okno Lufy nie jest aktywne."
-};
-}
-
-```
-game.lufaWindow = false;
-
-game.lufaUntil = null;
-
-if (
-    game.lufaStage ===
-    "afterFirst3"
-) {
-    game.lufaStage =
-        "afterLast3";
-
-    const result =
-        dealRemainingCards(
-            game
-        );
-
-    if (!result.ok) {
-        return result;
+    if (!game.lufaWindow) {
+        return {
+            ok: false,
+            error: "Okno deklaracji nie jest aktywne."
+        };
     }
 
-    game.phase = "lufa";
-
-    game.lufaWindow = true;
-
-    game.lufaUntil =
-        Date.now() + 5000;
-
-    game.message =
-        "Rozdano kolejne 3 karty. 5 sekund na Lufę.";
-
-    return {
-        ok: true,
-        secondWindow: true
-    };
-}
-
-if (
-    game.lufaStage ===
-    "afterLast3"
-) {
     game.lufaWindow = false;
+    game.lufaUntil = null;
+
+    if (game.lufaStage === "afterFirst3") {
+        game.earlyLufaCalled = !!game.lufaActive;
+
+        const result = dealRemainingCards(game);
+        if (!result.ok) {
+            return result;
+        }
+
+        // Po dobraniu kolejnych 3 kart obierający pyta o Lepszą/Gorszą
+        // albo Lufę na kolor. Jeśli Lufa była już na 3 kartach, nowa jest zablokowana.
+        game.phase = "lufa";
+        game.lufaStage = "afterLast3";
+        game.lufaWindow = true;
+        game.lufaUntil = Date.now() + 5000;
+        game.message = game.earlyLufaCalled
+            ? "Rozdano 6 kart. Lufa już była — można zgłosić Lepszą lub Gorszą."
+            : "Rozdano 6 kart. Można zgłosić Lepszą, Gorszą lub Lufę na kolor.";
+        return {
+            ok: true,
+            secondWindow: true,
+            earlyLufaCalled: game.earlyLufaCalled
+        };
+    }
+
+    if (game.lufaStage === "afterLast3") {
+        game.lufaWindow = false;
+        game.lufaUntil = null;
+        game.phase = "playing";
+
+        if (game.mode === "lepsza" || game.mode === "gorsza") {
+            game.currentPlayer = game.soloPlayer;
+            game.leader = game.soloPlayer;
+            game.message = `${getPlayerName(game, game.soloPlayer)} wychodzi.`;
+        } else {
+            game.currentPlayer = game.chooser;
+            game.leader = game.chooser;
+            game.message = `Wychodzi ${getPlayerName(game, game.chooser)}.`;
+        }
+
+        return {
+            ok: true,
+            secondWindow: false
+        };
+    }
 
     game.phase = "playing";
-
-    if (
-        game.mode === "lepsza" ||
-        game.mode === "gorsza"
-    ) {
-        game.currentPlayer =
-            game.soloPlayer;
-
-        game.leader =
-            game.soloPlayer;
-
-        game.message =
-            `${getPlayerName(
-                game,
-                game.soloPlayer
-            )} wychodzi.`;
-    } else {
-        game.currentPlayer =
-            game.leader;
-
-        game.message =
-            `Wychodzi ${
-                getPlayerName(
-                    game,
-                    game.leader
-                )
-            }.`;
-    }
-
-    return {
-        ok: true,
-        secondWindow: false
-    };
-}
-
-game.phase = "playing";
-
-return {
-    ok: true
-};
-```
-
+    return { ok: true };
 }
 
 /* =========================
@@ -795,7 +706,6 @@ if (!cardA || !cardB) {
 return false;
 }
 
-```
 if (
     cardA.suit ===
     cardB.suit
@@ -830,7 +740,6 @@ if (
 }
 
 return false;
-```
 
 }
 
@@ -842,7 +751,6 @@ if (!trick.length) {
 return null;
 }
 
-```
 const leadSuit =
     trick[0].card.suit;
 
@@ -871,7 +779,6 @@ for (
 }
 
 return winner;
-```
 
 }
 
@@ -890,19 +797,16 @@ game.mode !== "gorsza"
 return true;
 }
 
-```
 return (
     playerIndex !==
     game.skippedPlayer
 );
-```
 
 }
 
 function getActivePlayers(game) {
 const active = [];
 
-```
 for (
     let i = 0;
     i < game.players.length;
@@ -919,7 +823,6 @@ for (
 }
 
 return active;
-```
 
 }
 
@@ -932,7 +835,6 @@ getActivePlayers(
 game
 );
 
-```
 if (!active.length) {
     return playerIndex;
 }
@@ -953,7 +855,6 @@ return active[
         currentPosition + 1
     ) % active.length
 ];
-```
 
 }
 
@@ -967,9 +868,7 @@ game.mode === "gorsza"
 return 3;
 }
 
-```
 return 4;
-```
 
 }
 
@@ -989,7 +888,6 @@ game.phase !==
 return false;
 }
 
-```
 if (game.handFinished) {
     return false;
 }
@@ -1129,7 +1027,6 @@ if (trump) {
 }
 
 return true;
-```
 
 }
 
@@ -1146,7 +1043,6 @@ if (card.rank !== "Q") {
 return;
 }
 
-```
 const hand =
     game.hands[playerIndex];
 
@@ -1212,7 +1108,6 @@ game.pendingMeldMessage =
 
 game.message =
     game.pendingMeldMessage;
-```
 
 }
 
@@ -1226,7 +1121,6 @@ game.pendingMelds[team] <= 0
 return;
 }
 
-```
 const points =
     game.pendingMelds[team];
 
@@ -1241,7 +1135,6 @@ game.pendingMeldPlayers[
 
 game.message =
     `Meld zaliczony: +${points} punktów.`;
-```
 
 }
 
@@ -1263,7 +1156,6 @@ game.dealStage ===
 );
 }
 
-```
 if (
     game.mode === "gorsza"
 ) {
@@ -1276,7 +1168,6 @@ if (
 }
 
 return 0;
-```
 
 }
 
@@ -1304,7 +1195,6 @@ if (!game.trick.length) {
 return;
 }
 
-```
 const winningPlay =
     getWinningPlay(
         game.trick,
@@ -1437,7 +1327,6 @@ game.message =
         game,
         winnerIndex
     )} bierze sztycha i wychodzi.`;
-```
 
 }
 
@@ -1457,7 +1346,6 @@ return game.specialCaught
 : "solo";
 }
 
-```
 /*
  * Lepsza:
  * obierający musi wygrać przynajmniej
@@ -1475,7 +1363,6 @@ if (
 }
 
 return "opponents";
-```
 
 }
 
@@ -1487,7 +1374,6 @@ if (game.handFinished) {
 return;
 }
 
-```
 game.handFinished = true;
 
 game.phase = "finished";
@@ -1572,7 +1458,6 @@ game.nextChooser =
     (
         game.chooser + 1
     ) % 4;
-```
 
 }
 
@@ -1587,7 +1472,6 @@ game.trick,
 game
 );
 
-```
 if (!winningPlay) {
     return;
 }
@@ -1650,7 +1534,6 @@ game.message =
         game,
         winnerIndex
     )} bierze sztycha. Drużyna zdobywa ${trickPoints} pkt.`;
-```
 
 }
 
@@ -1670,7 +1553,6 @@ game.scores[team] >= 66
 game.handFinished =
 true;
 
-```
         game.winner =
             team;
 
@@ -1701,7 +1583,6 @@ true;
         return;
     }
 }
-```
 
 }
 
@@ -1725,7 +1606,6 @@ error:
 };
 }
 
-```
 if (game.handFinished) {
     return {
         ok: false,
@@ -1862,7 +1742,6 @@ if (
 return {
     ok: true
 };
-```
 
 }
 
@@ -1882,7 +1761,6 @@ playerIndex: index
 })
 ),
 
-```
     playerNames:
         game.players.map(
             p => p.name
@@ -1926,6 +1804,9 @@ playerIndex: index
 
     lufaActive:
         game.lufaActive,
+
+    earlyLufaCalled:
+        !!game.earlyLufaCalled,
 
     lufaWindow:
         game.lufaWindow,
@@ -1996,7 +1877,6 @@ playerIndex: index
         )
     ]
 };
-```
 
 }
 
@@ -2015,7 +1895,6 @@ if (
 return "Gracz";
 }
 
-```
 return (
     game.players[
         playerIndex
@@ -2024,7 +1903,6 @@ return (
         playerIndex + 1
     }`
 );
-```
 
 }
 
@@ -2038,7 +1916,6 @@ p =>
 p.team === team
 );
 
-```
 if (!teamPlayers.length) {
     return `Drużyna ${
         team + 1
@@ -2050,7 +1927,6 @@ return teamPlayers
         p => p.name
     )
     .join(" + ");
-```
 
 }
 
@@ -2067,7 +1943,6 @@ error:
 };
 }
 
-```
 game.chooser =
     Number.isInteger(
         game.nextChooser
@@ -2089,7 +1964,6 @@ dealInitialCards(
 return {
     ok: true
 };
-```
 
 }
 
@@ -2104,7 +1978,6 @@ RANKS,
 CARD_VALUES,
 RANK_POWER,
 
-```
 createDeck,
 shuffle,
 
@@ -2132,6 +2005,5 @@ check66,
 startNextHand,
 
 getGameState
-```
 
 };
