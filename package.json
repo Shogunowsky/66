@@ -1,0 +1,18 @@
+{
+  "name": "gra-66",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Przeglądarkowa gra karciana 66 dla czterech graczy lub z botami",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node tests/smoke-test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}
